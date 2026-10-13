@@ -1,0 +1,33 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+
+const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
+const encoder = new TextEncoder();
+const hash = async (value: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value)))].map(x => x.toString(16).padStart(2, '0')).join('');
+const hashBytes = async (value: Uint8Array) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', value))].map(x => x.toString(16).padStart(2, '0')).join('');
+
+Deno.serve(async request => {
+  if (request.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  try {
+    const auth = request.headers.get('Authorization');
+    if (!auth) throw new Error('No autorizado.');
+    const userClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    if (userError || !user) throw new Error('No autorizado.');
+    const form = await request.formData();
+    const title = String(form.get('title') ?? '').trim(); const message = String(form.get('message') ?? '').trim(); const groupKey = String(form.get('groupKey') ?? '');
+    const document = form.get('document');
+    if (!title || title.length > 120 || message.length > 500 || !(document instanceof File)) throw new Error('Datos de ronda inválidos.');
+    if (document.size === 0 || document.size > 10 * 1024 * 1024) throw new Error('El PDF debe pesar como máximo 10 MB.');
+    const bytes = new Uint8Array(await document.arrayBuffer());
+    if (new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error('El archivo no es un PDF legible.');
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { data: workflow, error: workflowError } = await admin.from('workflows').insert({ owner_id: user.id, title, message, group_key_hash: groupKey ? await hash(groupKey) : null }).select('id').single();
+    if (workflowError) throw new Error('No se pudo crear la ronda.');
+    const path = `${workflow.id}/0.pdf`; const digest = await hashBytes(bytes);
+    const { error: uploadError } = await admin.storage.from('firmador-documents').upload(path, bytes, { contentType: 'application/pdf', upsert: false });
+    if (uploadError) { await admin.from('workflows').delete().eq('id', workflow.id); throw new Error('No se pudo guardar el PDF.'); }
+    const { error: versionError } = await admin.from('document_versions').insert({ workflow_id: workflow.id, sequence: 0, storage_path: path, sha256: digest, byte_size: document.size });
+    if (versionError) { await admin.storage.from('firmador-documents').remove([path]); await admin.from('workflows').delete().eq('id', workflow.id); throw new Error('No se pudo registrar el PDF.'); }
+    return Response.json({ id: workflow.id }, { headers: cors });
+  } catch (error) { return Response.json({ error: error instanceof Error ? error.message : 'Error inesperado.' }, { status: 400, headers: cors }); }
+});

@@ -1,0 +1,10 @@
+import { describe, expect, it } from 'vitest';
+import { acceptUpload, activate, authorizeSigner, cancel, createDirected, hashSecret, type Version } from '../server/domain';
+const initial: Version = {id:'v0',digest:'old',signatureIds:[],createdAt:new Date()};
+const flow = () => createDirected('owner','Contrato','', [{name:'Ana',email:'ana@example.com',deadlineHours:1},{name:'Bea',email:'bea@example.com',deadlineHours:24}]);
+describe('flujo dirigido seguro', () => {
+ it('activa estrictamente un firmante y avanza tras una firma válida', () => { const w=flow(); const link=activate(w,initial); const p=w.participants[0]; p.codeHash=hashSecret('123456'); authorizeSigner(w,p.id,link,'123456'); const next=acceptUpload(w,p.id,{isPdf:true,size:100,digest:'new',signatures:[{id:'cert-ana',valid:true}],derivesFromCurrent:true,previousIntact:true}); expect(next).toBeTruthy(); expect(w.participants.map(x=>x.status)).toEqual(['completed','active']); });
+ it.each([{isPdf:false,size:1,digest:'x',signatures:[],derivesFromCurrent:true,previousIntact:true},{isPdf:true,size:10*1024*1024+1,digest:'x',signatures:[],derivesFromCurrent:true,previousIntact:true},{isPdf:true,size:1,digest:'old',signatures:[],derivesFromCurrent:true,previousIntact:true}])('rechaza cargas inseguras', validation => { const w=flow(); const link=activate(w,initial); const p=w.participants[0]; p.codeHash=hashSecret('code'); authorizeSigner(w,p.id,link,'code'); expect(()=>acceptUpload(w,p.id,validation)).toThrow(); expect(w.versions).toHaveLength(1); });
+ it('invalida el código tras el único uso', () => { const w=flow(); const link=activate(w,initial); const p=w.participants[0]; p.codeHash=hashSecret('once'); authorizeSigner(w,p.id,link,'once'); expect(()=>authorizeSigner(w,p.id,link,'once')).toThrow('enlace o código'); });
+ it('el cierre borra versiones y credenciales de acceso', () => { const w=flow(); activate(w,initial); cancel(w,'owner'); expect(w.versions).toEqual([]); expect(w.status).toBe('cancelled'); expect(w.participants.every(p=>!p.tokenHash&&!p.codeHash)).toBe(true); });
+});
