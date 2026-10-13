@@ -3,12 +3,22 @@ import type { Session } from '@supabase/supabase-js';
 import { createRoot } from 'react-dom/client';
 import { getSupabase } from './lib/supabase';
 import './styles.css';
+import './round.css';
 
 function Brand() { return <header className="brand"><span className="brand-mark">F</span><strong>Firmador</strong></header>; }
 function Notice({ message }: { message: string }) { return message ? <p className="notice" role="status">{message}</p> : null; }
 function DocumentArt() { return <div className="document-art" aria-hidden="true"><div className="art-paper"><i /><i /><i /><div className="art-sign">✓</div></div><div className="art-orbit" /></div>; }
 
+function RoundAccess({ id }: { id: string }) {
+  const [key, setKey] = useState(''); const [round, setRound] = useState<{ title: string; message: string; pdfUrl: string } | null>(null); const [notice, setNotice] = useState(''); const [busy, setBusy] = useState(false);
+  async function openRound(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setBusy(true); setNotice(''); const supabase = await getSupabase(); const { data, error } = await supabase.functions.invoke('get-round', { body: { id, groupKey: key } }); if (error || !data) setNotice('No pudimos abrir este documento. Comprueba la clave.'); else setRound(data); setBusy(false); }
+  if (round) return <main className="round"><Brand /><section className="round-card"><span className="file-chip">PDF</span><h1>{round.title}</h1>{round.message && <p>{round.message}</p>}<a className="primary" href={round.pdfUrl} target="_blank" rel="noreferrer">Abrir documento →</a><p className="round-note">Ábrelo para revisarlo. La firma se confirmará en el siguiente paso.</p></section></main>;
+  return <main className="round"><Brand /><section className="round-card"><span className="file-chip">PDF</span><h1>Documento para firmar</h1><p>Introduce la clave si te la han compartido.</p><form onSubmit={openRound}><label>Clave de acceso <em>Si aplica</em><input type="password" value={key} onChange={e => setKey(e.target.value)} autoFocus /></label><button className="primary wide" disabled={busy}>{busy ? 'Abriendo…' : 'Continuar'}</button></form><Notice message={notice} /></section></main>;
+}
+
 function App() {
+  const match = window.location.pathname.match(/^\/r\/([0-9a-f-]{36})$/i);
+  if (match) return <RoundAccess id={match[1]} />;
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
   const [title, setTitle] = useState(''); const [message, setMessage] = useState(''); const [key, setKey] = useState(''); const [document, setDocument] = useState<File | null>(null);
@@ -16,7 +26,7 @@ function App() {
   useEffect(() => { let unsubscribe = () => {}; getSupabase().then(supabase => { supabase.auth.getSession().then(({ data }) => setSession(data.session)); const { data } = supabase.auth.onAuthStateChange((_, next) => setSession(next)); unsubscribe = () => data.subscription.unsubscribe(); }).catch(() => setNotice('No pudimos abrir tu espacio. Recarga la página e inténtalo de nuevo.')); return () => unsubscribe(); }, []);
   async function authenticate(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setBusy(true); setNotice(''); const supabase = await getSupabase(); const { error } = await supabase.auth.signInWithPassword({ email, password }); if (error) setNotice('No pudimos iniciar sesión. Revisa tus datos o crea una cuenta.'); setBusy(false); }
   async function signUp() { setBusy(true); setNotice(''); const supabase = await getSupabase(); const { error } = await supabase.auth.signUp({ email, password }); setNotice(error ? 'No pudimos crear la cuenta. Usa una contraseña de al menos 8 caracteres.' : 'Cuenta creada. Revisa tu correo para confirmarla.'); setBusy(false); }
-  async function createRound() { if (!session) return; if (!title.trim() || !document) return setNotice('Añade un nombre y el PDF para continuar.'); setBusy(true); setNotice('Preparando tu ronda…'); const form = new FormData(); form.set('title', title); form.set('message', message); form.set('groupKey', key); form.set('document', document); const supabase = await getSupabase(); const { data, error } = await supabase.functions.invoke('create-round', { body: form }); setNotice(error ? 'No pudimos crear la ronda. Comprueba el PDF e inténtalo de nuevo.' : `Ronda lista. Comparte este enlace: /r/${data.id}`); setBusy(false); }
+  async function createRound() { if (!session) return; if (!title.trim() || !document) return setNotice('Añade un nombre y el PDF para continuar.'); setBusy(true); setNotice('Preparando tu ronda…'); const form = new FormData(); form.set('title', title); form.set('message', message); form.set('groupKey', key); form.set('document', document); const supabase = await getSupabase(); const { data, error } = await supabase.functions.invoke('create-round', { body: form }); setNotice(error ? 'No pudimos crear la ronda. Comprueba el PDF e inténtalo de nuevo.' : `Ronda lista. Comparte este enlace: ${window.location.origin}/r/${data.id}`); setBusy(false); }
 
   if (!session) return <main className="auth"><Brand /><div className="auth-grid"><section className="welcome"><DocumentArt /><h1>Firma documentos,<br />sin fricción.</h1><p>Una forma sencilla de compartir y firmar PDFs.</p></section><section className="login-card"><h2>Bienvenido</h2><p>Accede a tu espacio.</p><form onSubmit={authenticate}><label>Correo<input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required /></label><label>Contraseña<input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} minLength={8} required /></label><button className="primary wide" disabled={busy}>{busy ? 'Un momento…' : 'Entrar'}</button><button className="text-button" type="button" onClick={signUp} disabled={busy}>Crear cuenta</button></form><Notice message={notice} /></section></div></main>;
 
