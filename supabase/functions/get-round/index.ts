@@ -13,11 +13,7 @@ Deno.serve(async request => {
     const { data: round } = await admin.from('workflows').select('id,title,message,status,group_key_hash').eq('id', id).maybeSingle();
     if (!round || round.status !== 'active') throw new Error('Esta ronda no está disponible.');
     if (round.group_key_hash && round.group_key_hash !== await hash(groupKey)) throw new Error('La clave no es correcta.');
-    const { data: version, error: versionError } = await admin.from('document_versions').select('storage_path').eq('workflow_id', id).order('sequence', { ascending: false }).limit(1).single();
-    if (versionError) throw new Error('El documento no está disponible.');
-    const { data: link, error: linkError } = await admin.storage.from('firmador-documents').createSignedUrl(version.storage_path, 60);
-    if (linkError || !link) throw new Error('No se pudo abrir el documento.');
-    return Response.json({ title: round.title, message: round.message, pdfUrl: link.signedUrl, needsKey: Boolean(round.group_key_hash) }, { headers: cors });
+    return Response.json({ title: round.title, message: round.message, needsKey: Boolean(round.group_key_hash) }, { headers: cors });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : 'Error inesperado.' }, { status: 400, headers: cors });
   }
