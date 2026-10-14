@@ -9,7 +9,7 @@ Deno.serve(async request => {
     const { id, groupKey = '', sessionId, comment } = await request.json();
     if (typeof id !== 'string' || typeof sessionId !== 'string' || typeof comment !== 'string' || !comment.trim() || comment.trim().length > 1000) throw new Error('Describe el problema para detener la ronda.');
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const { data: workflow } = await admin.from('workflows').select('group_key_hash,status').eq('id', id).maybeSingle();
+    const { data: workflow } = await admin.from('workflows').select('group_key_hash,status,owner_id,title').eq('id', id).maybeSingle();
     if (!workflow || workflow.status !== 'active' || (workflow.group_key_hash && workflow.group_key_hash !== await hash(groupKey))) throw new Error('No se pudo acceder a esta ronda.');
     const sessionHash = await hash(sessionId);
     const { data: lock } = await admin.from('open_round_locks').select('holder_session_hash').eq('workflow_id', id).maybeSingle();
@@ -20,6 +20,11 @@ Deno.serve(async request => {
     await admin.from('error_reports').insert({ workflow_id: id, reporter_session_hash: sessionHash, comment: reason });
     await admin.from('open_round_locks').delete().eq('workflow_id', id).eq('holder_session_hash', sessionHash);
     await admin.from('workflow_audit_log').insert({ workflow_id: id, actor_type: 'participant', actor_session_hash: sessionHash, action: 'round_paused_by_report', metadata: { reason_length: reason.length } });
+    const key = Deno.env.get('RESEND_API_KEY'); const from = Deno.env.get('RESEND_FROM_EMAIL');
+    if (key && from) {
+      const { data: owner } = await admin.auth.admin.getUserById(workflow.owner_id);
+      if (owner.user?.email) await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [owner.user.email], subject: `Incidencia en ${workflow.title}`, html: `<p>Una persona detuvo la ronda porque detectó un problema:</p><blockquote>${reason}</blockquote><p>Entra a Firmador para revisar el proceso.</p>` }) });
+    }
     return Response.json({ ok: true }, { headers: cors });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : 'Error inesperado.' }, { status: 400, headers: cors });
