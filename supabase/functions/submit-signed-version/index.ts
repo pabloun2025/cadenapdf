@@ -6,7 +6,7 @@ const hashText = async (value: string) => hash(new TextEncoder().encode(value));
 async function notifyNext(admin: ReturnType<typeof createClient>, workflowId: string, next: { email?: string; holder_name?: string; token?: string } | null) {
   const key = Deno.env.get('RESEND_API_KEY'); const from = Deno.env.get('RESEND_FROM_EMAIL');
   if (!next?.email || !next.token || !key || !from) return;
-  const link = `https://firmador.pabloun.workers.dev/r/${workflowId}?turn=${encodeURIComponent(next.token)}`;
+  const link = `https://firma.veryfacil.org/r/${workflowId}?turn=${encodeURIComponent(next.token)}`;
   await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [next.email], subject: 'Ya puedes firmar tu documento', html: `<p>Hola ${next.holder_name ?? ''},</p><p>Ya puedes continuar con la firma.</p><p><a href="${link}">Abrir documento</a></p>` }) });
 }
 

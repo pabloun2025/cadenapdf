@@ -10,7 +10,7 @@ async function notifyWaitlisted(admin: ReturnType<typeof createClient>, workflow
   if (!notification) return;
   const key = Deno.env.get('RESEND_API_KEY'); const from = Deno.env.get('RESEND_FROM_EMAIL');
   if (!key || !from) return;
-  const link = `https://firmador.pabloun.workers.dev/r/${workflowId}`;
+  const link = `https://firma.veryfacil.org/r/${workflowId}`;
   const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'Idempotency-Key': `firmador-waitlisted-${notification.id}-${(notification.attempts ?? 0) + 1}` }, body: JSON.stringify({ from, to: [email], subject: 'Estás en espera para firmar', html: `<p>Hola ${name},</p><p>Tu solicitud para firmar está en la cola.</p><p>Te avisaremos cuando sea tu turno. Puedes volver a este enlace para consultar tu estado:</p><p><a href="${link}">Abrir la ronda de firma</a></p>` }) });
   const attempts = (notification.attempts ?? 0) + 1;
   await admin.from('open_round_notifications').update(response.ok ? { status: 'sent', sent_at: new Date().toISOString(), attempts, error_code: null } : { status: 'failed', error_code: String(response.status), attempts }).eq('id', notification.id);

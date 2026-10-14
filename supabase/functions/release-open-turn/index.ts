@@ -5,7 +5,7 @@ Deno.serve(async req=>{if(req.method==='OPTIONS')return new Response('ok',{heade
   const next=data?.next;
   const resendKey=Deno.env.get('RESEND_API_KEY');
   if(next?.email && resendKey){
-    const link=`https://firmador.pabloun.workers.dev/r/${id}?turn=${encodeURIComponent(next.token)}`;
+    const link=`https://firma.veryfacil.org/r/${id}?turn=${encodeURIComponent(next.token)}`;
     const from=Deno.env.get('RESEND_FROM_EMAIL');
     if (!from) throw new Error('El remitente de correo no está configurado.');
     const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${resendKey}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:[next.email],subject:'Ya puedes firmar tu documento',html:`<p>Hola ${next.holder_name},</p><p>Tu turno para firmar ya está disponible durante 10 minutos.</p><p><a href="${link}">Abrir documento</a></p>`})});
