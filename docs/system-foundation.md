@@ -2,7 +2,7 @@
 
 ## Propósito
 
-Firmador permite crear enlaces privados para revisar y firmar documentos PDF. La
+LeapSign permite crear enlaces privados para revisar y firmar documentos PDF. La
 base del sistema está pensada para que varias personas puedan esperar su turno
 sin que el documento ni el proceso de firma queden expuestos antes de tiempo.
 
@@ -113,7 +113,7 @@ funciones y datos se ejecutan en Supabase.
 - Las variables públicas contienen únicamente configuración apta para cliente.
 - Los secretos de servidor se configuran fuera del repositorio.
 
-## Siguientes fases
+## Trabajo posterior recomendado
 
 ### Fase 2 — Flujos dirigidos
 
@@ -146,11 +146,12 @@ aceptación de turno equivale a una firma válida.
 - La interfaz muestra claramente estados como pendiente, en proceso, firmado o
   fallido.
 
-### Fase 4 — Ciclo de vida y purga
+### Ciclo de vida y purga programada
 
-Definir vencimiento de rondas, eliminación de documentos temporales y limpieza
-de turnos abandonados. La expiración de un turno ya es un mecanismo de acceso;
-la purga documental requiere una política y ejecución programada aparte.
+La eliminación inmediata solicitada por el creador, la finalización y el
+rollback ya retiran las versiones descartadas del acceso y procesan la limpieza
+del almacenamiento. Sigue siendo recomendable acordar una política temporal y
+una ejecución programada para procesos abandonados.
 
 **Criterios de aceptación**
 
@@ -161,7 +162,7 @@ la purga documental requiere una política y ejecución programada aparte.
 - Se conserva únicamente la información de auditoría definida después de la
   purga.
 
-### Fase 5 — Auditoría y administración
+### Auditoría ampliada y administración
 
 Agregar una vista para creadores y un registro de eventos para investigar el
 ciclo de una ronda sin exponer documentos ni secretos.
@@ -176,7 +177,7 @@ ciclo de una ronda sin exponer documentos ni secretos.
 - La auditoría no contiene claves de acceso, tokens, URLs firmadas completas ni
   contenido del PDF.
 
-### Fase 6 — Notificaciones completas y resiliencia de cola
+### Notificaciones resilientes ante caducidad sin navegador
 
 Completar el aviso para promociones causadas tanto por una liberación manual
 como por caducidad. Esto necesita un proceso programado o un mecanismo de
@@ -195,6 +196,9 @@ persona que ya cerró la página.
 
 - El flujo de turnos organiza el acceso, pero todavía no reemplaza un proceso
   de firma digital validada.
+- Los PDF se almacenan de forma privada durante el proceso; LeapSign no ofrece
+  cifrado de extremo a extremo ni debe describirse como un sistema que «no
+  almacena nada».
 - La personalización de los correos de confirmación de Supabase depende de un
   proveedor SMTP configurado; el proveedor predeterminado puede imponer
   limitaciones de plan.
