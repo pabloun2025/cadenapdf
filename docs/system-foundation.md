@@ -58,14 +58,14 @@ autenticado puede crear y administrar sus rondas.
   `localhost`.
 - Una persona no autenticada no puede crear una ronda.
 
-### Flujos dirigidos
+### Rondas abiertas
 
-Una ronda contiene un PDF, un título, un mensaje opcional y, opcionalmente, una
-clave de acceso. Se comparte con una URL específica de ronda.
+Una ronda abierta contiene un PDF, un título, un mensaje opcional y,
+opcionalmente, una clave de acceso. Se comparte con una URL específica de ronda.
 
 **Criterios de aceptación**
 
-- El creador puede cargar un PDF y generar un enlace.
+- El creador puede cargar un PDF y generar un enlace de ronda abierta.
 - El enlace requiere la clave correcta cuando la ronda la tiene configurada.
 - La interfaz no presenta al usuario textos ni pasos que no sean necesarios
   para avanzar.
@@ -115,7 +115,21 @@ funciones y datos se ejecutan en Supabase.
 
 ## Siguientes fases
 
-### Fase 2 — Operación real de firma y validador privado
+### Fase 2 — Flujos dirigidos
+
+El esquema de participantes, invitaciones, estados y notificaciones ya existe
+en la base de datos, aislado de las rondas abiertas. La siguiente tarea conecta
+ese esquema con funciones de servidor y una interfaz para el creador.
+
+**Criterios de aceptación**
+
+- El creador define una secuencia de hasta 20 participantes y sus plazos.
+- Solo un participante dirigido puede tener una invitación activa.
+- Los enlaces y códigos se guardan únicamente como huellas en el servidor.
+- Los cambios de estado y de participantes se realizan mediante funciones de
+  servidor autorizadas, no con actualizaciones directas desde el navegador.
+
+### Fase 3 — Operación real de firma y validador privado
 
 Incorporar un servicio privado para preparar el documento, ejecutar la firma y
 validar el resultado. La aplicación no debe afirmar que una descarga o una
@@ -132,7 +146,7 @@ aceptación de turno equivale a una firma válida.
 - La interfaz muestra claramente estados como pendiente, en proceso, firmado o
   fallido.
 
-### Fase 3 — Ciclo de vida y purga
+### Fase 4 — Ciclo de vida y purga
 
 Definir vencimiento de rondas, eliminación de documentos temporales y limpieza
 de turnos abandonados. La expiración de un turno ya es un mecanismo de acceso;
@@ -147,7 +161,7 @@ la purga documental requiere una política y ejecución programada aparte.
 - Se conserva únicamente la información de auditoría definida después de la
   purga.
 
-### Fase 4 — Auditoría y administración
+### Fase 5 — Auditoría y administración
 
 Agregar una vista para creadores y un registro de eventos para investigar el
 ciclo de una ronda sin exponer documentos ni secretos.
@@ -162,7 +176,7 @@ ciclo de una ronda sin exponer documentos ni secretos.
 - La auditoría no contiene claves de acceso, tokens, URLs firmadas completas ni
   contenido del PDF.
 
-### Fase 5 — Notificaciones completas y resiliencia de cola
+### Fase 6 — Notificaciones completas y resiliencia de cola
 
 Completar el aviso para promociones causadas tanto por una liberación manual
 como por caducidad. Esto necesita un proceso programado o un mecanismo de
