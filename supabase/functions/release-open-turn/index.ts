@@ -5,7 +5,8 @@ Deno.serve(async req=>{if(req.method==='OPTIONS')return new Response('ok',{heade
   const next=data?.next;
   const resendKey=Deno.env.get('RESEND_API_KEY');
   if(next?.email && resendKey){
-    const link=`https://firmador.pabloun.workers.dev/r/${id}`;
-    await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${resendKey}`,'Content-Type':'application/json'},body:JSON.stringify({from:'Firmador <onboarding@resend.dev>',to:[next.email],subject:'Ya puedes firmar tu documento',html:`<p>Hola ${next.holder_name},</p><p>Tu turno para firmar ya está disponible.</p><p><a href="${link}">Abrir documento</a></p>`})});
+    const link=`https://firmador.pabloun.workers.dev/r/${id}?turn=${encodeURIComponent(next.token)}`;
+    const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${resendKey}`,'Content-Type':'application/json'},body:JSON.stringify({from:'Firmador <onboarding@resend.dev>',to:[next.email],subject:'Ya puedes firmar tu documento',html:`<p>Hola ${next.holder_name},</p><p>Tu turno para firmar ya está disponible durante 10 minutos.</p><p><a href="${link}">Abrir documento</a></p>`})});
+    if(!response.ok) console.error('No se pudo enviar el aviso de turno', response.status);
   }
   return Response.json({ok:true},{headers:cors});}catch(e){return Response.json({error:e instanceof Error?e.message:'Error'},{status:400,headers:cors});}});

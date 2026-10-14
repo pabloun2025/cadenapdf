@@ -1,6 +1,6 @@
 alter table public.open_round_waitlist
   add column if not exists email text,
-  add constraint open_round_waitlist_email_format check (email is null or email ~* '^[^[:space:]@]+@[^[:space:]@]+\\.[^[:space:]@]+$');
+  add constraint open_round_waitlist_email_format check (email is null or email ~* '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$');
 
 create or replace function public.claim_open_turn(
   p_workflow_id uuid,
