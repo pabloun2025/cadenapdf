@@ -33,7 +33,8 @@ jobs:
 
       - name: Explain missing deployment credential
         if: ${{ env.SUPABASE_ACCESS_TOKEN == '' }}
-        run: echo 'Deployment skipped: configure the SUPABASE_ACCESS_TOKEN repository secret.'
+        run: |
+          echo 'Deployment skipped: configure the SUPABASE_ACCESS_TOKEN repository secret.'
 
       - name: Apply pending migrations
         if: ${{ env.SUPABASE_ACCESS_TOKEN != '' }}
