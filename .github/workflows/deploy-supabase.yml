@@ -7,6 +7,12 @@ on:
       - 'supabase/**'
       - '.github/workflows/deploy-supabase.yml'
   workflow_dispatch:
+    inputs:
+      adopt_existing_schema:
+        description: 'Register the pre-existing initial schema once, then deploy pending migrations'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -35,6 +41,10 @@ jobs:
         if: ${{ env.SUPABASE_ACCESS_TOKEN == '' }}
         run: |
           echo 'Deployment skipped: configure the SUPABASE_ACCESS_TOKEN repository secret.'
+
+      - name: Adopt the pre-existing initial schema
+        if: ${{ env.SUPABASE_ACCESS_TOKEN != '' && github.event_name == 'workflow_dispatch' && inputs.adopt_existing_schema }}
+        run: supabase migration repair --status applied 20261013 --project-ref "$SUPABASE_PROJECT_REF"
 
       - name: Apply pending migrations
         if: ${{ env.SUPABASE_ACCESS_TOKEN != '' }}
