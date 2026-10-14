@@ -363,11 +363,24 @@ function RoundAccess({ id }: { id: string }) {
   const [turnExpired, setTurnExpired] = useState(false);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const turnToken =
-    new URLSearchParams(window.location.search).get("turn") || "";
+  const query = new URLSearchParams(window.location.search);
+  const turnToken = query.get("turn") || "";
+  const queueToken = query.get("queue") || "";
+  const [autoOpened, setAutoOpened] = useState(false);
+  const [autoRestored, setAutoRestored] = useState(false);
   const sessionId =
     localStorage.getItem("firmador-turn") || crypto.randomUUID();
   localStorage.setItem("firmador-turn", sessionId);
+  useEffect(() => {
+    if ((!queueToken && !turnToken) || round || autoOpened) return;
+    setAutoOpened(true);
+    void loadRound("");
+  }, [queueToken, turnToken, round, autoOpened]);
+  useEffect(() => {
+    if ((!queueToken && !turnToken) || !round || autoRestored) return;
+    setAutoRestored(true);
+    void takeTurn();
+  }, [queueToken, turnToken, round, autoRestored]);
   useEffect(() => {
     if (turn?.state !== "waiting") return;
     const timer = window.setInterval(() => {
@@ -391,23 +404,42 @@ function RoundAccess({ id }: { id: string }) {
   }, [turn?.state, turn?.expires_at]);
   async function openRound(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await loadRound(key);
+  }
+  async function loadRound(groupKey: string) {
     setBusy(true);
     const s = await getSupabase();
     const { data, error } = await s.functions.invoke("get-round", {
-      body: { id, groupKey: key },
+      body: { id, groupKey },
     });
     if (error || !data)
-      setNotice("No pudimos abrir este documento. Comprueba la clave.");
-    else setRound(data);
+      setNotice(
+        queueToken || turnToken
+          ? "Este enlace corresponde a una ronda protegida. Introduce la clave de acceso para consultar tu turno."
+          : "No pudimos abrir este documento. Comprueba la clave.",
+      );
+    else {
+      setKey(groupKey);
+      setRound(data);
+      setNotice("");
+    }
     setBusy(false);
   }
   async function takeTurn() {
-    if (!name.trim())
+    if (!name.trim() && !queueToken && !turnToken)
       return setNotice("Escribe tu nombre para tomar un turno.");
     setBusy(true);
     const s = await getSupabase();
     const { data, error } = await s.functions.invoke("take-open-turn", {
-      body: { id, groupKey: key, name, email, sessionId, turnToken },
+      body: {
+        id,
+        groupKey: key,
+        name,
+        email,
+        sessionId,
+        turnToken,
+        queueToken,
+      },
     });
     if (error || !data)
       setNotice(
@@ -420,6 +452,8 @@ function RoundAccess({ id }: { id: string }) {
     else {
       setTurnExpired(false);
       setTurn(data);
+      if (data.holder_name) setName(data.holder_name);
+      if (data.email) setEmail(data.email);
       setNotice("");
     }
     setBusy(false);

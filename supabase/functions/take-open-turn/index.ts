@@ -44,7 +44,13 @@ async function notifyWaitlisted(
     .select("id,status,attempts")
     .eq("dedupe_key", dedupeKey)
     .maybeSingle();
-  if (existing?.status === "sent") return;
+  const { data: savedAccess } = await admin
+    .from("open_round_access_links")
+    .select("access_token_hash")
+    .eq("workflow_id", workflowId)
+    .eq("session_hash", sessionHash)
+    .maybeSingle();
+  if (existing?.status === "sent" && savedAccess) return;
   const notification =
     existing ??
     (
@@ -64,7 +70,22 @@ async function notifyWaitlisted(
   const key = Deno.env.get("RESEND_API_KEY");
   const from = Deno.env.get("RESEND_FROM_EMAIL");
   if (!key || !from) return;
-  const link = `https://firma.veryfacil.org/r/${workflowId}`;
+  const accessToken = crypto.randomUUID();
+  const { error: accessError } = await admin
+    .from("open_round_access_links")
+    .upsert(
+      {
+        workflow_id: workflowId,
+        session_hash: sessionHash,
+        access_token_hash: await hash(accessToken),
+        holder_name: name,
+        email,
+        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      { onConflict: "workflow_id,session_hash" },
+    );
+  if (accessError) throw accessError;
+  const link = `https://firma.veryfacil.org/r/${workflowId}?queue=${encodeURIComponent(accessToken)}`;
   const html = emailFrame(
     `<p style="margin:0;color:#29705c;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">Solicitud recibida</p><h1 style="margin:10px 0 16px;font-size:28px">Estás en la cola de firma</h1><p>Hola ${escapeHtml(name)},</p><p style="line-height:1.65;color:#53665e">Conservamos tu posición y te avisaremos cuando el documento esté disponible para ti. También puedes consultar el estado desde el enlace.</p><p style="margin:24px 0"><a href="${link}" style="display:inline-block;background:#124d40;color:#fff;padding:13px 18px;border-radius:9px;text-decoration:none;font-weight:700">Consultar mi turno</a></p>`,
   );
@@ -103,12 +124,14 @@ Deno.serve(async (req) => {
     const {
       id,
       groupKey = "",
-      name,
+      name = "",
       email = "",
       sessionId,
       turnToken = "",
+      queueToken = "",
     } = await req.json();
-    if (!id || !name?.trim() || !sessionId) throw new Error("Datos inválidos.");
+    if (!id || !sessionId || (!name?.trim() && !turnToken && !queueToken))
+      throw new Error("Datos inválidos.");
     if (email && (typeof email !== "string" || !/^\S+@\S+\.\S+$/.test(email)))
       throw new Error("El correo no es válido.");
     const admin = createClient(
@@ -125,23 +148,63 @@ Deno.serve(async (req) => {
       (round.group_key_hash && round.group_key_hash !== (await hash(groupKey)))
     )
       throw new Error("No se pudo acceder a esta ronda.");
-    const normalizedEmail = email.trim().toLowerCase();
     const sessionHash = await hash(sessionId);
+    let holderName = name.trim();
+    let normalizedEmail = email.trim().toLowerCase();
+    let invitedSessionHash = "";
+    if (queueToken) {
+      const { data: restored, error: restoreError } = await admin.rpc(
+        "restore_open_turn_access",
+        {
+          p_workflow_id: id,
+          p_access_token_hash: await hash(queueToken),
+          p_new_session_hash: sessionHash,
+        },
+      );
+      if (restoreError || !restored) throw restoreError ?? new Error("No pudimos recuperar tu turno.");
+      holderName = String(restored.holder_name || "").trim();
+      normalizedEmail = String(restored.email || "").trim().toLowerCase();
+    } else if (turnToken && !holderName) {
+      const { data: invited } = await admin
+        .from("open_round_waitlist")
+        .select("holder_name,email,session_hash")
+        .eq("workflow_id", id)
+        .eq("turn_token_hash", await hash(turnToken))
+        .gt("turn_token_expires_at", new Date().toISOString())
+        .maybeSingle();
+      if (!invited) throw new Error("El enlace de turno no es válido o ha caducado.");
+      holderName = invited.holder_name;
+      normalizedEmail = invited.email || "";
+      invitedSessionHash = invited.session_hash;
+    }
     const { data: turn, error } = await admin.rpc("claim_open_turn", {
       p_workflow_id: id,
-      p_holder_name: name.trim(),
+      p_holder_name: holderName,
       p_session_hash: sessionHash,
       p_email: normalizedEmail || null,
       p_turn_token_hash: turnToken ? await hash(turnToken) : null,
     });
     if (error) throw error;
+    if (
+      turn.state === "active" &&
+      invitedSessionHash &&
+      invitedSessionHash !== sessionHash
+    ) {
+      const { error: transferError } = await admin
+        .from("open_round_access_links")
+        .update({ session_hash: sessionHash })
+        .eq("workflow_id", id)
+        .eq("session_hash", invitedSessionHash);
+      if (transferError)
+        console.error("No se pudo transferir el enlace de consulta", transferError.code);
+    }
     if (turn.state === "waiting" && normalizedEmail)
       await notifyWaitlisted(
         admin,
         id,
         sessionHash,
         normalizedEmail,
-        name.trim(),
+        holderName,
       );
     if (turn.state === "active") {
       const { data: v, error: e } = await admin
@@ -160,6 +223,8 @@ Deno.serve(async (req) => {
       if (le) throw le;
       turn.pdfUrl = l.signedUrl;
     }
+    turn.holder_name = holderName;
+    turn.email = normalizedEmail;
     return Response.json(turn, { headers: cors });
   } catch (e) {
     return Response.json(
