@@ -1,3 +1,4 @@
+-- Historical schema: normalize the turn-token digest signature.
 create or replace function public.release_open_turn(p_workflow_id uuid, p_session_hash text)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare next_signer record; raw_token text;

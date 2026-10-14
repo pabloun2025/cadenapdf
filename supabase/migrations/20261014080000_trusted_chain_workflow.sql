@@ -1,4 +1,4 @@
--- The product uses an operational trust workflow: the signer declares the
+-- Historical schema: the product uses an operational trust workflow: the signer declares the
 -- preceding version correct and an uploaded PDF immediately becomes the next
 -- immutable version. A reported problem pauses the workflow for its owner.
 create or replace function public.accept_open_signed_submission(

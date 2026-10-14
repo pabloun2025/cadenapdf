@@ -1,4 +1,4 @@
--- Cimientos para el flujo dirigido. No expone participantes, tokens ni
+-- Historical schema: cimientos para el flujo dirigido. No expone participantes, tokens ni
 -- documentos al navegador: las futuras operaciones se harán en Edge Functions.
 alter table public.workflows
   add column if not exists mode text not null default 'open'

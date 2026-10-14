@@ -1,4 +1,4 @@
--- Producto mínimo: ronda masiva. Todos los documentos se operan desde
+-- Historical schema: producto mínimo de ronda masiva. Todos los documentos se operan desde
 -- funciones de servidor; no se concede acceso directo a participantes.
 create extension if not exists pgcrypto;
 

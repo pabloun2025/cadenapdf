@@ -1,4 +1,4 @@
--- Base inmutable para una cadena de versiones firmadas. Las cargas candidatas
+-- Historical schema: base inmutable para una cadena de versiones firmadas. Las cargas candidatas
 -- se mantienen en cuarentena hasta que un validador privado las acepte.
 alter table public.workflows
   add column if not exists current_version_id uuid,

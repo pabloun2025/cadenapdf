@@ -1,13 +1,14 @@
-alter table public.open_round_waitlist
-  add column if not exists email text,
-  add constraint open_round_waitlist_email_format check (email is null or email ~* '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$');
+-- Historical schema: open signing queue.
+create table public.open_round_waitlist (
+  workflow_id uuid not null references public.workflows(id) on delete cascade,
+  session_hash text not null,
+  holder_name text not null check (char_length(holder_name) between 1 and 120),
+  joined_at timestamptz not null default now(),
+  primary key (workflow_id, session_hash)
+);
+alter table public.open_round_waitlist enable row level security;
 
-create or replace function public.claim_open_turn(
-  p_workflow_id uuid,
-  p_holder_name text,
-  p_session_hash text,
-  p_email text default null
-)
+create or replace function public.claim_open_turn(p_workflow_id uuid, p_holder_name text, p_session_hash text)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare held public.open_round_locks; wait_position integer;
 begin
@@ -22,21 +23,15 @@ begin
     return jsonb_build_object('state','active','expires_at', now() + interval '10 minutes');
   end if;
   if held.holder_session_hash = p_session_hash then return jsonb_build_object('state','active','expires_at',held.expires_at); end if;
-  insert into public.open_round_waitlist(workflow_id, session_hash, holder_name, email)
-  values (p_workflow_id, p_session_hash, p_holder_name, nullif(p_email, ''))
-  on conflict (workflow_id, session_hash) do update set holder_name = excluded.holder_name, email = coalesce(excluded.email, public.open_round_waitlist.email);
+  insert into public.open_round_waitlist(workflow_id, session_hash, holder_name) values (p_workflow_id, p_session_hash, p_holder_name) on conflict do nothing;
   select count(*) into wait_position from public.open_round_waitlist where workflow_id=p_workflow_id and joined_at <= (select joined_at from public.open_round_waitlist where workflow_id=p_workflow_id and session_hash=p_session_hash);
   return jsonb_build_object('state','waiting','position',wait_position,'expires_at',held.expires_at);
 end $$;
 
-drop function if exists public.release_open_turn(uuid, text);
-
-create function public.release_open_turn(p_workflow_id uuid, p_session_hash text)
-returns jsonb language plpgsql security definer set search_path = public as $$
-declare next_signer record;
+create or replace function public.release_open_turn(p_workflow_id uuid, p_session_hash text)
+returns boolean language plpgsql security definer set search_path = public as $$
 begin
   delete from public.open_round_locks where workflow_id=p_workflow_id and holder_session_hash=p_session_hash;
   delete from public.open_round_waitlist where workflow_id=p_workflow_id and session_hash=p_session_hash;
-  select holder_name, email into next_signer from public.open_round_waitlist where workflow_id=p_workflow_id order by joined_at limit 1;
-  return jsonb_build_object('released', true, 'next', case when next_signer.holder_name is null then null else jsonb_build_object('holder_name', next_signer.holder_name, 'email', next_signer.email) end);
+  return true;
 end $$;

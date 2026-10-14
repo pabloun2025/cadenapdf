@@ -1,4 +1,5 @@
 -- LeapSign lifecycle: human-reviewed PDF handoff, issue context and durable cleanup.
+-- This is the first migration managed after adopting the historical schema.
 -- Storage cannot participate in a PostgreSQL transaction, so discarded files are
 -- queued durably and removed by the maintenance worker after they become hidden.
 alter table public.error_reports

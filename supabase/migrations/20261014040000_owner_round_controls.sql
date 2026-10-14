@@ -1,4 +1,4 @@
--- Owner-only controls are implemented through a server function. Browser roles
+-- Historical schema: owner-only controls are implemented through a server function. Browser roles
 -- never receive permission to alter locks or workflow status directly.
 create or replace function public.owner_manage_open_round(
   p_workflow_id uuid,
