@@ -1,6 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 const hash = async (v:string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)))].map(x=>x.toString(16).padStart(2,'0')).join('');
+const downloadName = (title: string, sequence: number) => `${title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'documento'}_${String(sequence).padStart(2, '0')}.pdf`;
 async function notifyWaitlisted(admin: ReturnType<typeof createClient>, workflowId: string, sessionHash: string, email: string, name: string) {
   const dedupeKey = `waitlisted:${workflowId}:${sessionHash}`;
   const { data: existing } = await admin.from('open_round_notifications').select('id,status,attempts').eq('dedupe_key', dedupeKey).maybeSingle();
@@ -18,9 +19,9 @@ Deno.serve(async req => { if(req.method==='OPTIONS') return new Response('ok',{h
   const {id,groupKey='',name,email='',sessionId,turnToken=''}=await req.json(); if(!id||!name?.trim()||!sessionId) throw new Error('Datos inválidos.');
   if(email && (typeof email !== 'string' || !/^\S+@\S+\.\S+$/.test(email))) throw new Error('El correo no es válido.');
   const admin=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-  const {data:round}=await admin.from('workflows').select('group_key_hash').eq('id',id).maybeSingle(); if(!round || (round.group_key_hash && round.group_key_hash!==await hash(groupKey))) throw new Error('No se pudo acceder a esta ronda.');
+  const {data:round}=await admin.from('workflows').select('group_key_hash,title').eq('id',id).maybeSingle(); if(!round || (round.group_key_hash && round.group_key_hash!==await hash(groupKey))) throw new Error('No se pudo acceder a esta ronda.');
   const normalizedEmail=email.trim().toLowerCase(); const sessionHash=await hash(sessionId); const {data:turn,error}=await admin.rpc('claim_open_turn',{p_workflow_id:id,p_holder_name:name.trim(),p_session_hash:sessionHash,p_email:normalizedEmail||null,p_turn_token_hash:turnToken ? await hash(turnToken) : null}); if(error) throw error;
   if (turn.state === 'waiting' && normalizedEmail) await notifyWaitlisted(admin, id, sessionHash, normalizedEmail, name.trim());
-  if(turn.state==='active'){ const {data:v,error:e}=await admin.from('document_versions').select('storage_path').eq('workflow_id',id).order('sequence',{ascending:false}).limit(1).single(); if(e) throw e; const {data:l,error:le}=await admin.storage.from('firmador-documents').createSignedUrl(v.storage_path,600); if(le) throw le; turn.pdfUrl=l.signedUrl; }
+  if(turn.state==='active'){ const {data:v,error:e}=await admin.from('document_versions').select('storage_path,sequence').eq('workflow_id',id).order('sequence',{ascending:false}).limit(1).single(); if(e) throw e; const {data:l,error:le}=await admin.storage.from('firmador-documents').createSignedUrl(v.storage_path,600,{download:downloadName(round.title,v.sequence)}); if(le) throw le; turn.pdfUrl=l.signedUrl; }
   return Response.json(turn,{headers:cors});
 }catch(e){return Response.json({error:e instanceof Error?e.message:'Error'},{status:400,headers:cors});} });

@@ -34,8 +34,7 @@ Deno.serve(async request => {
     if (!parent) throw new Error('No encontramos la versión actual del documento.');
     const digest = await hash(bytes);
     if (digest === parent.sha256) throw new Error('El archivo es igual a la versión anterior. Descarga el PDF, fírmalo y vuelve a cargar la copia resultante.');
-    const sizeRatio = document.size / Number(parent.byte_size);
-    if (sizeRatio < 0.5 || sizeRatio > 3) throw new Error('El tamaño cambió demasiado respecto a la versión anterior. Revisa que hayas seleccionado la copia firmada correcta.');
+    if (document.size <= Number(parent.byte_size)) throw new Error(`El PDF firmado debe pesar más que la versión anterior (${Math.ceil(Number(parent.byte_size) / 1024)} KB). Selecciona la copia que generó FirmaEC o Adobe.`);
     const { data: lock } = await admin.from('open_round_locks').select('version_id_at_claim,expires_at').eq('workflow_id', id).eq('holder_session_hash', sessionHash).maybeSingle();
     if (!lock || new Date(lock.expires_at).getTime() <= Date.now()) throw new Error('Tu turno ya no está activo.');
     if (lock.version_id_at_claim !== workflow.current_version_id) throw new Error('Hay una versión más reciente del documento. Vuelve a abrir tu turno.');
