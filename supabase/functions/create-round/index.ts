@@ -26,8 +26,10 @@ Deno.serve(async request => {
     const path = `${workflow.id}/0.pdf`; const digest = await hashBytes(bytes);
     const { error: uploadError } = await admin.storage.from('firmador-documents').upload(path, bytes, { contentType: 'application/pdf', upsert: false });
     if (uploadError) { await admin.from('workflows').delete().eq('id', workflow.id); throw new Error('No se pudo guardar el PDF.'); }
-    const { error: versionError } = await admin.from('document_versions').insert({ workflow_id: workflow.id, sequence: 0, storage_path: path, sha256: digest, byte_size: document.size });
-    if (versionError) { await admin.storage.from('firmador-documents').remove([path]); await admin.from('workflows').delete().eq('id', workflow.id); throw new Error('No se pudo registrar el PDF.'); }
+    const { data: version, error: versionError } = await admin.from('document_versions').insert({ workflow_id: workflow.id, sequence: 0, storage_path: path, sha256: digest, byte_size: document.size }).select('id').single();
+    if (versionError || !version) { await admin.storage.from('firmador-documents').remove([path]); await admin.from('workflows').delete().eq('id', workflow.id); throw new Error('No se pudo registrar el PDF.'); }
+    const { error: currentVersionError } = await admin.from('workflows').update({ current_version_id: version.id }).eq('id', workflow.id).eq('owner_id', user.id);
+    if (currentVersionError) { await admin.storage.from('firmador-documents').remove([path]); await admin.from('workflows').delete().eq('id', workflow.id); throw new Error('No se pudo preparar el documento.'); }
     return Response.json({ id: workflow.id }, { headers: cors });
   } catch (error) { return Response.json({ error: error instanceof Error ? error.message : 'Error inesperado.' }, { status: 400, headers: cors }); }
 });
