@@ -30,6 +30,12 @@ Deno.serve(async request => {
     const { data: workflow } = await admin.from('workflows').select('id,status,group_key_hash,current_version_id').eq('id', id).maybeSingle();
     if (!workflow || workflow.status !== 'active' || !workflow.current_version_id) throw new Error('Esta ronda no está disponible.');
     if (workflow.group_key_hash && workflow.group_key_hash !== await hashText(groupKey)) throw new Error('No se pudo acceder a esta ronda.');
+    const { data: parent } = await admin.from('document_versions').select('sha256,byte_size').eq('id', workflow.current_version_id).maybeSingle();
+    if (!parent) throw new Error('No encontramos la versión actual del documento.');
+    const digest = await hash(bytes);
+    if (digest === parent.sha256) throw new Error('El archivo es igual a la versión anterior. Descarga el PDF, fírmalo y vuelve a cargar la copia resultante.');
+    const sizeRatio = document.size / Number(parent.byte_size);
+    if (sizeRatio < 0.5 || sizeRatio > 3) throw new Error('El tamaño cambió demasiado respecto a la versión anterior. Revisa que hayas seleccionado la copia firmada correcta.');
     const { data: lock } = await admin.from('open_round_locks').select('version_id_at_claim,expires_at').eq('workflow_id', id).eq('holder_session_hash', sessionHash).maybeSingle();
     if (!lock || new Date(lock.expires_at).getTime() <= Date.now()) throw new Error('Tu turno ya no está activo.');
     if (lock.version_id_at_claim !== workflow.current_version_id) throw new Error('Hay una versión más reciente del documento. Vuelve a abrir tu turno.');
@@ -41,7 +47,7 @@ Deno.serve(async request => {
       const path = `${id}/submissions/${submissionId}.pdf`;
       const { error: uploadError } = await admin.storage.from('firmador-documents').upload(path, bytes, { contentType: 'application/pdf', upsert: false });
       if (uploadError) throw new Error('No pudimos guardar el PDF firmado.');
-      const { error: insertError } = await admin.from('signature_submissions').insert({ id: submissionId, workflow_id: id, parent_version_id: workflow.current_version_id, storage_path: path, sha256: await hash(bytes), byte_size: document.size, submitted_by_session_hash: sessionHash, status: 'uploaded' });
+      const { error: insertError } = await admin.from('signature_submissions').insert({ id: submissionId, workflow_id: id, parent_version_id: workflow.current_version_id, storage_path: path, sha256: digest, byte_size: document.size, submitted_by_session_hash: sessionHash, status: 'uploaded' });
       if (insertError) { await admin.storage.from('firmador-documents').remove([path]); throw new Error('No pudimos registrar la entrega.'); }
     }
     const { data: accepted, error: acceptError } = await admin.rpc('accept_open_signed_submission', { p_workflow_id: id, p_session_hash: sessionHash, p_submission_id: submissionId });

@@ -2,13 +2,17 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 const hash = async (v:string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)))].map(x=>x.toString(16).padStart(2,'0')).join('');
 async function notifyWaitlisted(admin: ReturnType<typeof createClient>, workflowId: string, sessionHash: string, email: string, name: string) {
-  const { data: notification, error } = await admin.from('open_round_notifications').insert({ workflow_id: workflowId, session_hash: sessionHash, email, kind: 'waitlisted', dedupe_key: `waitlisted:${workflowId}:${sessionHash}` }).select('id').single();
-  if (error || !notification) return;
+  const dedupeKey = `waitlisted:${workflowId}:${sessionHash}`;
+  const { data: existing } = await admin.from('open_round_notifications').select('id,status,attempts').eq('dedupe_key', dedupeKey).maybeSingle();
+  if (existing?.status === 'sent') return;
+  const notification = existing ?? (await admin.from('open_round_notifications').insert({ workflow_id: workflowId, session_hash: sessionHash, email, kind: 'waitlisted', dedupe_key: dedupeKey }).select('id,status,attempts').single()).data;
+  if (!notification) return;
   const key = Deno.env.get('RESEND_API_KEY'); const from = Deno.env.get('RESEND_FROM_EMAIL');
   if (!key || !from) return;
   const link = `https://firmador.pabloun.workers.dev/r/${workflowId}`;
-  const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'Idempotency-Key': `firmador-waitlisted-${notification.id}` }, body: JSON.stringify({ from, to: [email], subject: 'Estás en espera para firmar', html: `<p>Hola ${name},</p><p>Tu solicitud para firmar está en la cola.</p><p>Te avisaremos cuando sea tu turno. Puedes volver a este enlace para consultar tu estado:</p><p><a href="${link}">Abrir la ronda de firma</a></p>` }) });
-  await admin.from('open_round_notifications').update(response.ok ? { status: 'sent', sent_at: new Date().toISOString(), attempts: 1 } : { status: 'failed', error_code: String(response.status), attempts: 1 }).eq('id', notification.id);
+  const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'Idempotency-Key': `firmador-waitlisted-${notification.id}-${(notification.attempts ?? 0) + 1}` }, body: JSON.stringify({ from, to: [email], subject: 'Estás en espera para firmar', html: `<p>Hola ${name},</p><p>Tu solicitud para firmar está en la cola.</p><p>Te avisaremos cuando sea tu turno. Puedes volver a este enlace para consultar tu estado:</p><p><a href="${link}">Abrir la ronda de firma</a></p>` }) });
+  const attempts = (notification.attempts ?? 0) + 1;
+  await admin.from('open_round_notifications').update(response.ok ? { status: 'sent', sent_at: new Date().toISOString(), attempts, error_code: null } : { status: 'failed', error_code: String(response.status), attempts }).eq('id', notification.id);
 }
 Deno.serve(async req => { if(req.method==='OPTIONS') return new Response('ok',{headers:cors}); try {
   const {id,groupKey='',name,email='',sessionId,turnToken=''}=await req.json(); if(!id||!name?.trim()||!sessionId) throw new Error('Datos inválidos.');
