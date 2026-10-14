@@ -17,10 +17,10 @@
 }
 .round-card h1 {
   font:
-    750 36px/1.08 "Avenir Next",
+    700 32px/1.12 "Avenir Next",
     "Segoe UI",
     sans-serif;
-  letter-spacing: -1.8px;
+  letter-spacing: -1.3px;
   margin: 16px 0 12px;
 }
 .round-card > p {
@@ -35,7 +35,7 @@
   background: #edf3ef;
   color: #355f52;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.7px;
 }
 .file-chip.success {
@@ -66,7 +66,7 @@
 }
 .share-link span {
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #3b6d5c;
@@ -91,7 +91,7 @@
 .signing-step h2 {
   margin: 0;
   font:
-    720 18px "Avenir Next",
+    680 18px "Avenir Next",
     "Segoe UI",
     sans-serif;
 }
@@ -141,21 +141,21 @@
 .owner-panel h2 {
   margin: 0;
   font:
-    720 24px "Avenir Next",
+    680 23px "Avenir Next",
     "Segoe UI",
     sans-serif;
 }
 .owner-panel h3 {
   margin: 0;
   font:
-    720 20px "Avenir Next",
+    680 20px "Avenir Next",
     "Segoe UI",
     sans-serif;
 }
 .owner-panel h4 {
   margin: 24px 0 10px;
   font:
-    720 15px "Avenir Next",
+    680 15px "Avenir Next",
     "Segoe UI",
     sans-serif;
 }
@@ -216,8 +216,9 @@
 }
 .owner-detail dd {
   margin: 5px 0 0;
-  font-weight: 700;
+  font-weight: 650;
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 .submission-list {
   display: grid;
@@ -300,6 +301,7 @@
 }
 .version-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 14px;
 }
 .version-actions .text-button {
@@ -325,6 +327,8 @@
 .owner-round-open span {
   display: grid;
   gap: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .trash-button {
   display: grid;
@@ -452,7 +456,7 @@
   padding: 0 7px;
   color: #52655d;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 650;
 }
 .issue-box label {
   margin: 12px 0;
@@ -461,6 +465,66 @@
   margin: 10px 0 0;
   color: #9a433c;
 }
+.signing-step .notice,
+.issue-box .notice {
+  margin-top: 12px;
+}
+.final-approval {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 17px;
+  border: 1px solid #b8d1c4;
+  border-radius: 13px;
+  background: #f2f7f4;
+}
+.final-approval-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.final-approval-title > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #dcebe3;
+  color: #225e4b;
+}
+.final-approval-title strong {
+  font-size: 14px;
+  font-weight: 680;
+}
+.final-approval-title p {
+  margin: 4px 0 0;
+  color: #5e7168;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.final-confirm {
+  display: grid;
+  grid-template-columns: 19px 1fr;
+  align-items: start;
+  gap: 9px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #cfddd5;
+  border-radius: 10px;
+  background: #fff;
+  color: #334d43;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.final-confirm input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+.final-button {
+  width: 100%;
+}
 @media (max-width: 600px) {
   .flow-steps {
     grid-template-columns: 1fr;
@@ -468,5 +532,43 @@
   .flow-steps li {
     grid-template-columns: auto 1fr;
     align-items: center;
+  }
+  .round-card h1 {
+    font-size: 27px;
+    letter-spacing: -0.9px;
+  }
+  .turn-timer strong {
+    font-size: 36px;
+  }
+  .owner-actions .signout,
+  .owner-actions .danger-button {
+    flex: 1 1 calc(50% - 7px);
+  }
+  .owner-round-open {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .owner-round-open > span:last-child {
+    white-space: nowrap;
+  }
+}
+@media (max-width: 420px) {
+  .round {
+    padding: 20px 12px;
+  }
+  .round-card {
+    padding: 24px 18px;
+    border-radius: 18px;
+  }
+  .signing-step {
+    margin-inline: -4px;
+    padding: 17px;
+  }
+  .owner-panel {
+    padding: 21px 16px;
+  }
+  .owner-actions .signout,
+  .owner-actions .danger-button {
+    flex-basis: 100%;
   }
 }

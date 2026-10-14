@@ -18,6 +18,7 @@
 }
 body {
   margin: 0;
+  min-width: 320px;
   background:
     radial-gradient(circle at 10% 0, #eef3ec 0, transparent 32rem), var(--ivory);
 }
@@ -54,27 +55,27 @@ button:disabled {
 .brand-mark {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 13px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   background: var(--forest);
   color: var(--gold);
   box-shadow: 0 8px 24px #123f351c;
 }
 .brand-mark svg {
-  width: 31px;
-  height: 31px;
+  width: 29px;
+  height: 29px;
 }
 .brand-name {
   font:
-    750 21px/1.1 "Avenir Next",
+    700 20px/1.1 "Avenir Next",
     "Segoe UI",
     sans-serif;
   letter-spacing: -0.8px;
 }
 .brand-tagline {
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #74827b;
@@ -90,25 +91,25 @@ button:disabled {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(360px, 430px);
   align-items: center;
-  min-height: 690px;
-  gap: 76px;
+  min-height: 650px;
+  gap: 68px;
 }
 .welcome {
   min-width: 0;
 }
 .welcome h1 {
   font:
-    750 clamp(42px, 5.3vw, 70px) / 1.01 "Avenir Next",
+    700 clamp(38px, 4.5vw, 58px) / 1.04 "Avenir Next",
     "Segoe UI",
     sans-serif;
-  letter-spacing: -4px;
+  letter-spacing: -2.8px;
   margin: 17px 0 18px;
   max-width: 760px;
 }
 .welcome > p {
   max-width: 670px;
   color: var(--muted);
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.6;
 }
 .eyebrow,
@@ -118,7 +119,7 @@ button:disabled {
   gap: 7px;
   color: var(--forest-2);
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -152,7 +153,7 @@ button:disabled {
   background: #ffffffa8;
   color: #476158;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
 }
 .security-strip {
   display: flex;
@@ -179,11 +180,11 @@ button:disabled {
   box-shadow: 0 24px 70px #123d3310;
 }
 .login-card {
-  padding: 38px;
+  padding: 34px;
 }
 .login-card h2 {
   font:
-    750 28px "Avenir Next",
+    700 27px "Avenir Next",
     "Segoe UI",
     sans-serif;
   letter-spacing: -1.2px;
@@ -199,7 +200,7 @@ label {
   gap: 8px;
   margin: 18px 0;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 650;
 }
 input,
 textarea,
@@ -237,7 +238,7 @@ em {
   border-radius: 11px;
   background: var(--forest);
   color: #fff;
-  font-weight: 720;
+  font-weight: 650;
   padding: 13px 19px;
   box-shadow: 0 7px 18px #124d4022;
   transition:
@@ -264,13 +265,26 @@ em {
   text-underline-offset: 3px;
 }
 .notice {
-  margin: 18px 0 0;
-  padding: 12px 14px;
+  margin: 12px 0 0;
+  padding: 13px 14px;
   border: 1px solid #d8e7de;
   border-radius: 10px;
   background: #f0f7f3;
   color: #365f51;
   font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.notice.error {
+  border-color: #e2ada8;
+  background: #fff1ef;
+  color: #8f3029;
+  box-shadow: 0 6px 18px #8f30290d;
+}
+.notice.success {
+  border-color: #acd2bd;
+  background: #edf8f1;
+  color: #235f48;
 }
 .form-legal {
   margin: 24px 0 0 !important;
@@ -297,7 +311,7 @@ em {
 }
 .workspace-head h1 {
   font:
-    750 40px "Avenir Next",
+    700 36px "Avenir Next",
     "Segoe UI",
     sans-serif;
   letter-spacing: -2px;
@@ -368,11 +382,11 @@ em {
   background: var(--forest);
   color: #fff;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
 }
 .step-title h2 {
   font:
-    720 18px "Avenir Next",
+    680 18px "Avenir Next",
     "Segoe UI",
     sans-serif;
   margin: 0;
@@ -508,21 +522,21 @@ em {
 .legal-shell > header > span {
   color: var(--forest-2);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 .legal-shell h1 {
   font:
-    750 clamp(42px, 6vw, 68px) / 1.02 "Avenir Next",
+    700 clamp(36px, 5vw, 56px) / 1.05 "Avenir Next",
     "Segoe UI",
     sans-serif;
-  letter-spacing: -3.5px;
+  letter-spacing: -2.5px;
   margin: 14px 0 20px;
 }
 .legal-shell > header p {
   color: var(--muted);
-  font-size: 19px;
+  font-size: 17px;
   line-height: 1.65;
 }
 .legal-grid {
@@ -582,16 +596,18 @@ em {
     min-height: 0;
   }
   .welcome {
-    padding: 38px 0;
+    padding: 30px 0 24px;
   }
   .welcome h1 {
-    letter-spacing: -2.5px;
+    max-width: 620px;
+    font-size: clamp(36px, 9vw, 48px);
+    letter-spacing: -2px;
   }
   .document-art {
-    height: 220px;
+    height: 205px;
   }
   .document-art img {
-    height: 170px;
+    height: 155px;
   }
   .login-card {
     padding: 27px;
@@ -631,5 +647,42 @@ em {
   }
   .site-footer nav {
     justify-content: flex-start;
+  }
+}
+@media (max-width: 480px) {
+  .auth,
+  .workspace,
+  .legal-page {
+    padding-inline: 14px;
+  }
+  .brand-name {
+    font-size: 19px;
+  }
+  .welcome h1 {
+    font-size: 34px;
+    letter-spacing: -1.5px;
+  }
+  .welcome > p {
+    font-size: 15px;
+  }
+  .document-art {
+    height: 178px;
+  }
+  .document-art img {
+    height: 132px;
+  }
+  .document-art figcaption span:nth-child(3) {
+    display: none;
+  }
+  .login-card {
+    padding: 24px 20px;
+    border-radius: 18px;
+  }
+  .workspace-head {
+    align-items: flex-start;
+  }
+  .workspace-head h1 {
+    font-size: 30px;
+    letter-spacing: -1.2px;
   }
 }

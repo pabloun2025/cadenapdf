@@ -112,20 +112,23 @@ function FrogMark() {
   return (
     <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
       <path
-        d="M7 27c3-7 7-10 13-10s10 3 13 10c-4 4-8 6-13 6S11 31 7 27Z"
+        d="M10.7 22c2.8-5 7.6-7.9 12.7-7 5.3.9 8.1 4.5 6.1 8.1-2.2 4-8.5 6.4-14 4.1-3.8-1.5-6.4-3.1-4.8-5.2Z"
         fill="currentColor"
       />
       <path
-        d="M11 18c-2-4 0-8 4-8 3 0 5 2 5 5 0-3 2-5 5-5 4 0 6 4 4 8"
+        d="M15.5 25.5C11.3 27.3 9 30.6 5 32m9.1-4.8C11 30.1 9.2 33.3 6 35m21.5-14.2c3.2-.2 5.2-1.8 7.3-4m-7.7 7c3.8.7 6.3 2.6 8.8 5"
         stroke="currentColor"
-        strokeWidth="3"
-      />
-      <path
-        d="m11 28-6 5m24-5 6 5M15 24c3 2 7 2 10 0"
-        stroke="#F4E2A9"
-        strokeWidth="2"
+        strokeWidth="2.5"
         strokeLinecap="round"
       />
+      <path
+        d="M14.2 24.5c4.4 1.5 9.4.6 12.4-2.6"
+        stroke="#F4E2A9"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+      <circle cx="27.1" cy="16.2" r="2.2" fill="currentColor" />
+      <circle cx="27.6" cy="15.7" r=".65" fill="#124D40" />
     </svg>
   );
 }
@@ -142,9 +145,15 @@ function Brand() {
     </header>
   );
 }
-function Notice({ message }: { message: string }) {
+function Notice({
+  message,
+  tone = "info",
+}: {
+  message: string;
+  tone?: "info" | "error" | "success";
+}) {
   return message ? (
-    <p className="notice" role="status">
+    <p className={`notice ${tone}`} role={tone === "error" ? "alert" : "status"}>
       {message}
     </p>
   ) : null;
@@ -175,15 +184,15 @@ function SecurityStrip() {
     <div className="security-strip" aria-label="Controles de privacidad">
       <span>
         <Icon name="lock" size={17} />
-        <b>Privado</b> por diseño
+        Archivos privados
       </span>
       <span>
         <Icon name="clock" size={17} />
-        Enlaces temporales
+        Enlaces con caducidad
       </span>
       <span>
         <Icon name="shield" size={17} />
-        Acceso restringido
+        Acceso por turnos
       </span>
     </div>
   );
@@ -227,22 +236,22 @@ const ISSUE_REASONS = [
 
 const LEGAL_CONTENT = {
   privacidad: {
-    eyebrow: "Transparencia y privacidad",
-    title: "Tus documentos no son nuestro producto.",
+    eyebrow: "Privacidad",
+    title: "Tu documento sigue siendo tuyo.",
     intro:
-      "LeapSign trata únicamente los datos necesarios para coordinar cada proceso. No vendemos información, no analizamos el contenido para publicidad y no hacemos públicos tus documentos.",
+      "Usamos solo lo necesario para que el documento avance entre las personas indicadas. No vendemos tus datos, no usamos el contenido para publicidad y nunca publicamos tus archivos.",
     sections: [
       [
         "Qué tratamos",
-        "Correo de la cuenta del creador; título, mensaje y estado del proceso; PDF original y versiones incorporadas; y, cuando se facilitan, nombre y correo de participantes. También conservamos registros técnicos mínimos para seguridad y trazabilidad.",
+        "El correo del creador, los datos básicos del proceso, el PDF y sus versiones. Si un participante facilita su nombre o correo, los usamos para gestionar su turno y enviarle avisos.",
       ],
       [
         "Cómo se protegen",
-        "Los PDF permanecen en almacenamiento privado. El acceso se concede mediante enlaces de duración limitada y controles del servidor. Las comunicaciones usan HTTPS/TLS y la infraestructura aplica cifrado en reposo. LeapSign no ofrece cifrado de extremo a extremo y ningún sistema conectado puede prometer riesgo cero.",
+        "Los PDF se guardan en un espacio privado y solo se entregan mediante permisos del servidor y enlaces temporales. La conexión viaja cifrada y el proveedor protege los archivos almacenados. Como cualquier servicio conectado, no podemos prometer riesgo cero.",
       ],
       [
         "Cuánto tiempo",
-        "Los documentos se mantienen mientras el proceso está activo o hasta que el creador los elimina o finaliza conforme a los controles disponibles. Al eliminar un proceso se solicita la purga de sus archivos privados y metadatos asociados, salvo obligaciones legales o copias técnicas temporales del proveedor.",
+        "Conservamos los archivos mientras el proceso está activo. El creador puede finalizarlo o eliminarlo desde su panel; al eliminarlo, se inicia la retirada de archivos y datos asociados, salvo copias técnicas temporales u obligaciones legales.",
       ],
       [
         "Tus derechos",
@@ -251,34 +260,34 @@ const LEGAL_CONTENT = {
     ],
   },
   seguridad: {
-    eyebrow: "Arquitectura de confianza",
-    title: "Privacidad verificable, sin promesas vacías.",
+    eyebrow: "Seguridad",
+    title: "Protección clara en cada paso.",
     intro:
-      "LeapSign separa la identidad del creador, el acceso temporal del participante y el almacenamiento privado del documento.",
+      "Cada persona recibe solo el acceso que necesita y durante el tiempo necesario. El creador mantiene el control del proceso y de sus versiones.",
     sections: [
       [
-        "01 · Acceso mínimo",
-        "Cada creador ve exclusivamente sus propios procesos. Los participantes solo reciben la versión vigente durante su turno y mediante una URL temporal.",
+        "Acceso personal",
+        "Cada creador ve sus propios procesos. Quien firma accede únicamente a la versión vigente durante su turno, mediante un enlace privado y temporal.",
       ],
       [
-        "02 · Secretos fuera del navegador",
-        "Las credenciales de servicio, claves de correo y permisos administrativos no se incluyen en la aplicación web ni en los enlaces compartidos.",
+        "Claves protegidas",
+        "Las credenciales internas y los permisos administrativos permanecen en el servidor; no viajan dentro de la aplicación ni aparecen en los enlaces compartidos.",
       ],
       [
-        "03 · Historial controlado",
-        "Cada versión se encadena al documento anterior. El creador puede detener, reanudar, volver a una versión o aceptar la versión final con confirmación explícita.",
+        "Una versión cada vez",
+        "Cada entrega continúa desde la versión anterior. El creador puede detener el proceso, recuperar una versión y confirmar cuál será la definitiva.",
       ],
       [
-        "04 · Alcance real",
-        "LeapSign coordina entregas y turnos de PDF. No valida por sí mismo la identidad, el certificado ni la validez jurídica de una firma digital; esa comprobación corresponde a las herramientas de firma y a las partes.",
+        "Qué hace LeapSign",
+        "LeapSign ordena turnos y versiones. La identidad del firmante y la validez de una firma deben comprobarse con la herramienta de firma elegida y, cuando corresponda, con asesoramiento profesional.",
       ],
     ],
   },
   condiciones: {
     eyebrow: "Condiciones de uso",
-    title: "Un marco claro para usar LeapSign.",
+    title: "Lo importante, antes de empezar.",
     intro:
-      "Al utilizar LeapSign aceptas emplearlo de forma lícita, proteger los enlaces de acceso y comprobar el documento antes de incorporarlo al proceso.",
+      "Usa LeapSign solo con documentos que puedas tratar, cuida los enlaces privados y revisa cada PDF antes de hacerlo avanzar.",
     sections: [
       [
         "Naturaleza del servicio",
@@ -362,6 +371,12 @@ function RoundAccess({ id }: { id: string }) {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [turnExpired, setTurnExpired] = useState(false);
   const [notice, setNotice] = useState("");
+  const [noticeTarget, setNoticeTarget] = useState<
+    "access" | "turn" | "submission" | "issue"
+  >("access");
+  const [noticeTone, setNoticeTone] = useState<"info" | "error" | "success">(
+    "info",
+  );
   const [busy, setBusy] = useState(false);
   const query = new URLSearchParams(window.location.search);
   const turnToken = query.get("turn") || "";
@@ -412,13 +427,15 @@ function RoundAccess({ id }: { id: string }) {
     const { data, error } = await s.functions.invoke("get-round", {
       body: { id, groupKey },
     });
-    if (error || !data)
+    if (error || !data) {
+      setNoticeTarget("access");
+      setNoticeTone("error");
       setNotice(
         queueToken || turnToken
           ? "Este enlace corresponde a una ronda protegida. Introduce la clave de acceso para consultar tu turno."
           : "No pudimos abrir este documento. Comprueba la clave.",
       );
-    else {
+    } else {
       setKey(groupKey);
       setRound(data);
       setNotice("");
@@ -426,8 +443,11 @@ function RoundAccess({ id }: { id: string }) {
     setBusy(false);
   }
   async function takeTurn() {
-    if (!name.trim() && !queueToken && !turnToken)
+    if (!name.trim() && !queueToken && !turnToken) {
+      setNoticeTarget("turn");
+      setNoticeTone("error");
       return setNotice("Escribe tu nombre para tomar un turno.");
+    }
     setBusy(true);
     const s = await getSupabase();
     const { data, error } = await s.functions.invoke("take-open-turn", {
@@ -441,7 +461,9 @@ function RoundAccess({ id }: { id: string }) {
         queueToken,
       },
     });
-    if (error || !data)
+    if (error || !data) {
+      setNoticeTarget("turn");
+      setNoticeTone("error");
       setNotice(
         await functionError(
           error,
@@ -449,7 +471,7 @@ function RoundAccess({ id }: { id: string }) {
             "No pudimos asignarte un turno. Inténtalo de nuevo en unos segundos.",
         ),
       );
-    else {
+    } else {
       setTurnExpired(false);
       setTurn(data);
       if (data.holder_name) setName(data.holder_name);
@@ -462,11 +484,16 @@ function RoundAccess({ id }: { id: string }) {
     const s = await getSupabase();
     await s.functions.invoke("release-open-turn", { body: { id, sessionId } });
     setTurn(null);
+    setNoticeTarget("turn");
+    setNoticeTone("info");
     setNotice("Turno liberado.");
   }
   async function submitSignedVersion() {
-    if (!signedDocument || !reviewedPrevious)
+    if (!signedDocument || !reviewedPrevious) {
+      setNoticeTarget("submission");
+      setNoticeTone("error");
       return setNotice("Confirma la revisión y selecciona el PDF firmado.");
+    }
     setBusy(true);
     const form = new FormData();
     form.set("id", id);
@@ -478,14 +505,16 @@ function RoundAccess({ id }: { id: string }) {
     const { data, error } = await s.functions.invoke("submit-signed-version", {
       body: form,
     });
-    if (error || !data)
+    if (error || !data) {
+      setNoticeTarget("submission");
+      setNoticeTone("error");
       setNotice(
         await functionError(
           error,
           data?.error || "No pudimos incorporar el PDF firmado.",
         ),
       );
-    else {
+    } else {
       setTurn(null);
       setSubmitted(true);
       setNotice("");
@@ -493,10 +522,16 @@ function RoundAccess({ id }: { id: string }) {
     setBusy(false);
   }
   async function reportIssue() {
-    if (!ISSUE_REASONS.includes(issueReason as (typeof ISSUE_REASONS)[number]))
+    if (!ISSUE_REASONS.includes(issueReason as (typeof ISSUE_REASONS)[number])) {
+      setNoticeTarget("issue");
+      setNoticeTone("error");
       return setNotice("Elige el motivo de la incidencia.");
-    if (issueReason === "Otro problema" && issueDetail.trim().length > 500)
+    }
+    if (issueReason === "Otro problema" && issueDetail.trim().length > 500) {
+      setNoticeTarget("issue");
+      setNoticeTone("error");
       return setNotice("La observación puede tener hasta 500 caracteres.");
+    }
     setBusy(true);
     const s = await getSupabase();
     const { error } = await s.functions.invoke("report-open-error", {
@@ -510,11 +545,13 @@ function RoundAccess({ id }: { id: string }) {
         reporterEmail: email,
       },
     });
-    if (error)
+    if (error) {
+      setNoticeTarget("issue");
+      setNoticeTone("error");
       setNotice(
         await functionError(error, "No pudimos registrar la incidencia."),
       );
-    else {
+    } else {
       setTurn(null);
       setRound(null);
       setNotice(
@@ -546,7 +583,7 @@ function RoundAccess({ id }: { id: string }) {
               Continuar
             </button>
           </form>
-          <Notice message={notice} />
+          <Notice message={notice} tone={noticeTone} />
         </section>
       </main>
     );
@@ -582,7 +619,7 @@ function RoundAccess({ id }: { id: string }) {
           <button className="primary wide" onClick={takeTurn} disabled={busy}>
             {busy ? "Solicitando…" : "Solicitar un nuevo intento"}
           </button>
-          <Notice message={notice} />
+          <Notice message={notice} tone={noticeTone} />
         </section>
       </main>
     );
@@ -680,6 +717,9 @@ function RoundAccess({ id }: { id: string }) {
             >
               {busy ? "Incorporando…" : "Incorporar PDF firmado y continuar →"}
             </button>
+            {noticeTarget === "submission" && (
+              <Notice message={notice} tone={noticeTone} />
+            )}
           </div>
           <button className="text-button" onClick={release}>
             Liberar turno sin firmar
@@ -687,10 +727,10 @@ function RoundAccess({ id }: { id: string }) {
           <aside className="scope-note">
             <Icon name="shield" size={18} />
             <p>
-              <strong>Alcance del servicio.</strong> LeapSign coordina versiones
-              y turnos; no certifica la identidad ni la validez jurídica de la
-              firma. Comprueba el PDF y utiliza una herramienta de firma
-              adecuada.
+              <strong>Antes de firmar.</strong> Comprueba que este sea el PDF
+              correcto y fírmalo con una herramienta de confianza. LeapSign
+              mantiene el orden de las versiones, pero no sustituye la
+              verificación de identidad o de la firma.
             </p>
           </aside>
           <fieldset className="issue-box">
@@ -729,8 +769,13 @@ function RoundAccess({ id }: { id: string }) {
             >
               Detener e informar
             </button>
+            {noticeTarget === "issue" && (
+              <Notice message={notice} tone={noticeTone} />
+            )}
           </fieldset>
-          <Notice message={notice} />
+          {noticeTarget !== "submission" && noticeTarget !== "issue" && (
+            <Notice message={notice} tone={noticeTone} />
+          )}
         </section>
       </main>
     );
@@ -771,7 +816,7 @@ function RoundAccess({ id }: { id: string }) {
             ? "Comprobar turno"
             : "Tomar turno para firmar"}
         </button>
-        <Notice message={notice} />
+        <Notice message={notice} tone={noticeTone} />
       </section>
     </main>
   );
@@ -788,6 +833,7 @@ function OwnerPanel() {
   const [rounds, setRounds] = useState<OwnerRound[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [notice, setNotice] = useState("");
+  const [finalConfirmed, setFinalConfirmed] = useState(false);
   async function loadRounds() {
     const s = await getSupabase();
     const { data, error } = await s
@@ -807,6 +853,7 @@ function OwnerPanel() {
       setNotice("No pudimos cargar el seguimiento de la ronda.");
     else {
       setSelected(data);
+      setFinalConfirmed(false);
       setNotice("");
     }
   }
@@ -824,6 +871,12 @@ function OwnerPanel() {
   ) {
     const roundId = workflowId ?? selected?.workflow.id;
     if (!roundId) return;
+    if (action === "finalize" && !finalConfirmed) {
+      setNotice(
+        "Revisa la versión descargada y marca la confirmación antes de aceptarla como final.",
+      );
+      return;
+    }
     const irreversible = action === "rollback" || action === "finalize";
     const warning =
       action === "purge"
@@ -1050,16 +1103,42 @@ function OwnerPanel() {
                       Volver a esta versión
                     </button>
                   )}
-                  {version.id === selected.workflow.current_version_id &&
-                    selected.workflow.status !== "completed" && (
+                </div>
+                {version.id === selected.workflow.current_version_id &&
+                  selected.workflow.status !== "completed" && (
+                    <div className="final-approval">
+                      <div className="final-approval-title">
+                        <span>
+                          <Icon name="check" size={17} />
+                        </span>
+                        <div>
+                          <strong>¿Esta es la versión definitiva?</strong>
+                          <p>
+                            Descárgala y revísala antes de cerrar el proceso.
+                            Después no podrán añadirse más firmas.
+                          </p>
+                        </div>
+                      </div>
+                      <label className="final-confirm">
+                        <input
+                          type="checkbox"
+                          checked={finalConfirmed}
+                          onChange={(event) =>
+                            setFinalConfirmed(event.target.checked)
+                          }
+                        />
+                        He revisado el PDF y confirmo que esta será la versión
+                        final.
+                      </label>
                       <button
-                        className="text-button"
+                        className="primary final-button"
+                        disabled={!finalConfirmed}
                         onClick={() => manageRound("finalize", version.id)}
                       >
-                        Aceptar versión final
+                        Aceptar versión final y cerrar
                       </button>
-                    )}
-                </div>
+                    </div>
+                  )}
               </li>
             ))}
           </ul>
@@ -1273,8 +1352,8 @@ function App() {
               Cada versión, bajo control.
             </h1>
             <p>
-              LeapSign organiza el recorrido de un PDF, una persona a la vez,
-              sin exponer el documento.
+              LeapSign mantiene una sola versión vigente y avisa a cada persona
+              cuando llega su turno.
             </p>
             <SecurityStrip />
           </section>
@@ -1458,9 +1537,10 @@ function App() {
           </button>
         </div>
         <p className="process-disclaimer">
-          Al crear el proceso confirmas que puedes tratar este documento y los
-          datos de sus participantes. LeapSign organiza la entrega; no sustituye
-          la verificación jurídica o criptográfica de las firmas.
+          Antes de compartir el enlace, comprueba que tienes permiso para usar
+          el documento y los datos de sus participantes. LeapSign mantiene las
+          versiones en orden; la validez de cada firma debe verificarse con la
+          herramienta correspondiente.
         </p>
         {createdLink && (
           <div className="share-link" role="status">
