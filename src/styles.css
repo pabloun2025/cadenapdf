@@ -155,23 +155,6 @@ button:disabled {
   font-size: 11px;
   font-weight: 600;
 }
-.security-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 26px;
-}
-.security-strip span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 12px;
-  border: 1px solid #d9e3dc;
-  border-radius: 9px;
-  color: #4a6259;
-  background: #fff9;
-  font-size: 12px;
-}
 .login-card,
 .create-card {
   background: #fff;
@@ -287,6 +270,47 @@ em {
   color: #527166;
 }
 .password-toggle:hover { background: #edf4ef; }
+.password-rules {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px 10px;
+  margin: -8px 0 16px;
+  padding: 0;
+  list-style: none;
+  color: #7b8781;
+  font-size: 11px;
+}
+.password-rules li,
+.password-match {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.password-rules li > span,
+.password-match > span {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #cbd6d0;
+  border-radius: 50%;
+  color: transparent;
+  background: #fff;
+}
+.password-rules li.met,
+.password-match.met { color: #25614d; }
+.password-rules li.met > span,
+.password-match.met > span {
+  border-color: #8fbea7;
+  background: #e8f5ed;
+  color: #25614d;
+}
+.password-match {
+  margin: -8px 0 16px;
+  color: #9a4a43;
+  font-size: 11px;
+  font-weight: 600;
+}
 .notice {
   margin: 12px 0 0;
   padding: 13px 14px;
@@ -674,6 +698,7 @@ em {
 }
 @media (max-width: 480px) {
   .name-fields { grid-template-columns: 1fr; gap: 0; }
+  .password-rules { grid-template-columns: 1fr; }
   .auth,
   .workspace,
   .legal-page {
@@ -697,6 +722,14 @@ em {
   }
   .document-art figcaption span:nth-child(3) {
     display: none;
+  }
+  .auth-registering .welcome .eyebrow,
+  .auth-registering .welcome h1,
+  .auth-registering .welcome > p {
+    display: none;
+  }
+  .auth-registering .welcome {
+    padding-bottom: 10px;
   }
   .login-card {
     padding: 24px 20px;

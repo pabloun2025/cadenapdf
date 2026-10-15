@@ -148,7 +148,7 @@ function Brand() {
         </span>
         <span className="brand-name">LeapSign</span>
       </a>
-      <span className="brand-tagline">Documentos en movimiento seguro</span>
+      <span className="brand-tagline">Firma secuencial de PDF</span>
     </header>
   );
 }
@@ -186,22 +186,59 @@ function DocumentArt() {
     </figure>
   );
 }
-function SecurityStrip() {
+const passwordRules = (value: string) => [
+  { label: "8 caracteres como mínimo", met: value.length >= 8 },
+  { label: "Al menos un número", met: /\d/.test(value) },
+  { label: "Al menos un símbolo", met: /[^\p{L}\p{N}\s]/u.test(value) },
+];
+const validPassword = (value: string) =>
+  passwordRules(value).every((rule) => rule.met);
+function PasswordInput({
+  value,
+  onChange,
+  visible,
+  onToggle,
+  autoFocus = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  visible: boolean;
+  onToggle: () => void;
+  autoFocus?: boolean;
+}) {
   return (
-    <div className="security-strip" aria-label="Controles de privacidad">
-      <span>
-        <Icon name="lock" size={17} />
-        Archivos privados
-      </span>
-      <span>
-        <Icon name="clock" size={17} />
-        Enlaces con caducidad
-      </span>
-      <span>
-        <Icon name="shield" size={17} />
-        Acceso por turnos
-      </span>
-    </div>
+    <span className="password-field">
+      <input
+        type={visible ? "text" : "password"}
+        autoComplete="new-password"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        minLength={8}
+        required
+        autoFocus={autoFocus}
+      />
+      <button
+        type="button"
+        className="password-toggle"
+        aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
+        aria-pressed={visible}
+        onClick={onToggle}
+      >
+        <Icon name="eye" size={18} />
+      </button>
+    </span>
+  );
+}
+function PasswordRequirements({ value }: { value: string }) {
+  return (
+    <ul className="password-rules" aria-label="Requisitos de contraseña">
+      {passwordRules(value).map((rule) => (
+        <li className={rule.met ? "met" : ""} key={rule.label}>
+          <span><Icon name="check" size={12} /></span>
+          {rule.label}
+        </li>
+      ))}
+    </ul>
   );
 }
 function Footer() {
@@ -1241,6 +1278,7 @@ function App() {
   const [createdLink, setCreatedLink] = useState("");
   const [createdRoundId, setCreatedRoundId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [authNoticeTone, setAuthNoticeTone] = useState<"info" | "error" | "success">("info");
   useEffect(() => {
     let unsubscribe = () => {};
     getSupabase()
@@ -1268,21 +1306,31 @@ function App() {
       email,
       password,
     });
-    if (error)
+    if (error) {
+      const detail = error.message.toLowerCase();
+      setAuthNoticeTone("error");
       setNotice(
-        "No pudimos iniciar sesión. Revisa tus datos o crea una cuenta.",
+        detail.includes("email not confirmed")
+          ? "Confirma tu correo antes de iniciar sesión. Revisa también la carpeta de spam."
+          : detail.includes("invalid login") || detail.includes("invalid credentials")
+            ? "El correo o la contraseña no son correctos."
+            : detail.includes("rate")
+              ? "Has realizado demasiados intentos. Espera unos minutos y vuelve a probar."
+              : "No pudimos iniciar sesión en este momento. Inténtalo de nuevo.",
       );
+    }
     setBusy(false);
   }
   async function signUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedEmail = email.trim().toLowerCase();
+    setAuthNoticeTone("error");
     if (!firstName.trim() || !lastName.trim())
       return setNotice("Escribe tu nombre y apellidos.");
     if (!/^\S+@\S+\.\S+$/.test(normalizedEmail))
       return setNotice("Escribe un correo válido.");
-    if (password.length < 8)
-      return setNotice("La contraseña debe tener al menos 8 caracteres.");
+    if (!validPassword(password))
+      return setNotice("Completa los tres requisitos de la contraseña.");
     if (password !== confirmPassword)
       return setNotice("Las dos contraseñas no coinciden.");
     setBusy(true);
@@ -1302,24 +1350,29 @@ function App() {
     });
     if (error) {
       const detail = error.message.toLowerCase();
+      setAuthNoticeTone("error");
       setNotice(
-        detail.includes("already") || detail.includes("registered")
-          ? "Ya existe una cuenta con este correo. Inicia sesión o recupera la contraseña."
-          : detail.includes("password")
-            ? "La contraseña no cumple los requisitos de seguridad. Usa al menos 8 caracteres."
-            : `No pudimos crear la cuenta: ${error.message}`,
+        detail.includes("password")
+          ? "La contraseña no cumple los requisitos indicados."
+          : detail.includes("rate") || detail.includes("limit")
+            ? "Se han realizado demasiados intentos. Espera unos minutos antes de volver a probar."
+            : detail.includes("email")
+              ? "No pudimos usar ese correo. Comprueba que esté bien escrito."
+              : "No pudimos crear la cuenta en este momento. Inténtalo de nuevo.",
       );
     } else {
-      setNotice("Cuenta creada. Revisa el correo de confirmación para activar tu acceso.");
+      setAuthNoticeTone("success");
+      setNotice("Revisa tu correo para confirmar el registro. Si ya tenías una cuenta, inicia sesión o recupera la contraseña.");
       setRegistering(false);
       setConfirmPassword("");
     }
     setBusy(false);
   }
   async function requestRecovery() {
-    if (!email.trim())
+    setAuthNoticeTone("error");
+    if (!/^\S+@\S+\.\S+$/.test(email.trim()))
       return setNotice(
-        "Escribe tu correo y pulsa de nuevo para recibir el enlace.",
+        "Escribe un correo válido para recuperar la contraseña.",
       );
     setBusy(true);
     setNotice("");
@@ -1327,29 +1380,36 @@ function App() {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin,
     });
-    setNotice(
-      error
-        ? "No pudimos enviar el enlace de recuperación. Comprueba el correo."
-        : "Te enviamos un enlace para crear una nueva contraseña.",
-    );
+    if (error) {
+      setAuthNoticeTone("error");
+      setNotice(error.message.toLowerCase().includes("rate") ? "Has solicitado demasiados enlaces. Espera unos minutos y vuelve a intentarlo." : "No pudimos procesar la solicitud. Inténtalo de nuevo.");
+    } else {
+      setAuthNoticeTone("success");
+      setNotice("Si existe una cuenta con ese correo, recibirás un enlace para crear una contraseña nueva.");
+    }
     setBusy(false);
   }
   async function updatePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (password.length < 8)
-      return setNotice("La nueva contraseña debe tener al menos 8 caracteres.");
+    setAuthNoticeTone("error");
+    if (!validPassword(password))
+      return setNotice("Completa los tres requisitos de la contraseña.");
+    if (password !== confirmPassword)
+      return setNotice("Las dos contraseñas no coinciden.");
     setBusy(true);
     const supabase = await getSupabase();
     const { error } = await supabase.auth.updateUser({ password });
-    if (error)
+    if (error) {
+      setAuthNoticeTone("error");
       setNotice(
         "No pudimos actualizar tu contraseña. Abre de nuevo el enlace del correo.",
       );
-    else {
+    } else {
       await supabase.auth.signOut();
       setSession(null);
       setRecovering(false);
       window.history.replaceState({}, "", window.location.pathname);
+      setAuthNoticeTone("success");
       setNotice("Contraseña actualizada. Ya puedes iniciar sesión.");
     }
     setBusy(false);
@@ -1385,7 +1445,7 @@ function App() {
 
   if (recovering)
     return (
-      <main className="auth">
+      <main className="auth auth-recovery">
         <Brand />
         <div className="auth-grid">
           <section className="welcome">
@@ -1395,39 +1455,36 @@ function App() {
             <p>
               Crea una contraseña nueva para volver a gestionar tus documentos.
             </p>
-            <SecurityStrip />
           </section>
           <section className="login-card">
             <span className="card-kicker">
               <Icon name="lock" size={16} /> Seguridad de la cuenta
             </span>
             <h2>Nueva contraseña</h2>
-            <p>Usa al menos 8 caracteres.</p>
+            <p>Elige una contraseña segura y distinta de las que uses en otros servicios.</p>
             <form onSubmit={updatePassword}>
               <label>
                 Nueva contraseña
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  minLength={8}
-                  required
-                  autoFocus
-                />
+                <PasswordInput value={password} onChange={setPassword} visible={showPassword} onToggle={() => setShowPassword((visible) => !visible)} autoFocus />
               </label>
+              <PasswordRequirements value={password} />
+              <label>
+                Repite la contraseña
+                <PasswordInput value={confirmPassword} onChange={setConfirmPassword} visible={showConfirmPassword} onToggle={() => setShowConfirmPassword((visible) => !visible)} />
+              </label>
+              {confirmPassword && <p className={`password-match ${password === confirmPassword ? "met" : ""}`}><span><Icon name="check" size={12} /></span>{password === confirmPassword ? "Las contraseñas coinciden" : "Las contraseñas deben coincidir"}</p>}
               <button className="primary wide" disabled={busy}>
                 {busy ? "Guardando…" : "Guardar contraseña"}
               </button>
             </form>
-            <Notice message={notice} />
+            <Notice message={notice} tone={authNoticeTone} />
           </section>
         </div>
       </main>
     );
   if (!session)
     return (
-      <main className="auth">
+      <main className={`auth ${registering ? "auth-registering" : ""}`}>
         <Brand />
         <div className="auth-grid">
           <section className="welcome">
@@ -1442,14 +1499,13 @@ function App() {
               LeapSign mantiene una sola versión vigente y avisa a cada persona
               cuando llega su turno.
             </p>
-            <SecurityStrip />
           </section>
           <section className="login-card">
             <span className="card-kicker">
               <Icon name="shield" size={16} /> Espacio privado
             </span>
             <h2>{registering ? "Crea tu cuenta" : "Accede a LeapSign"}</h2>
-            <p>{registering ? "Tus datos se usan únicamente para identificar tu espacio privado." : "Gestiona tus procesos y versiones."}</p>
+            {registering && <p>Completa tus datos para crear tu espacio.</p>}
             {registering ? <form onSubmit={signUp}>
               <div className="name-fields">
                 <label>Nombre<input autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} maxLength={80} required autoFocus /></label>
@@ -1460,13 +1516,15 @@ function App() {
                 <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </label>
               <label>
-                Contraseña <em>8 caracteres o más</em>
-                <span className="password-field"><input type={showPassword ? "text" : "password"} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required /><button type="button" className="password-toggle" aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"} onClick={() => setShowPassword((visible) => !visible)}><Icon name="eye" size={18} /></button></span>
+                Contraseña
+                <PasswordInput value={password} onChange={setPassword} visible={showPassword} onToggle={() => setShowPassword((visible) => !visible)} />
               </label>
+              <PasswordRequirements value={password} />
               <label>
                 Repite la contraseña
-                <span className="password-field"><input type={showConfirmPassword ? "text" : "password"} autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} minLength={8} required /><button type="button" className="password-toggle" aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"} onClick={() => setShowConfirmPassword((visible) => !visible)}><Icon name="eye" size={18} /></button></span>
+                <PasswordInput value={confirmPassword} onChange={setConfirmPassword} visible={showConfirmPassword} onToggle={() => setShowConfirmPassword((visible) => !visible)} />
               </label>
+              {confirmPassword && <p className={`password-match ${password === confirmPassword ? "met" : ""}`}><span><Icon name="check" size={12} /></span>{password === confirmPassword ? "Las contraseñas coinciden" : "Las contraseñas deben coincidir"}</p>}
               <button className="primary wide" disabled={busy}>{busy ? "Creando cuenta…" : "Crear cuenta"}</button>
               <button className="text-button" type="button" onClick={() => { setRegistering(false); setNotice(""); }} disabled={busy}>Ya tengo una cuenta</button>
             </form> : <form onSubmit={authenticate}>
@@ -1482,17 +1540,10 @@ function App() {
               </label>
               <label>
                 Contraseña
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  minLength={8}
-                  required
-                />
+                <span className="password-field"><input type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /><button type="button" className="password-toggle" aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)}><Icon name="eye" size={18} /></button></span>
               </label>
               <button className="primary wide" disabled={busy}>
-                {busy ? "Un momento…" : "Entrar de forma segura"}
+                {busy ? "Entrando…" : "Entrar"}
               </button>
               <button
                 className="text-button"
@@ -1511,12 +1562,12 @@ function App() {
                 Crear una cuenta
               </button>
             </form>}
-            <Notice message={notice} />
-            <p className="form-legal">
+            <Notice message={notice} tone={authNoticeTone} />
+            {registering && <p className="form-legal">
               Al continuar aceptas las{" "}
               <a href="/condiciones">condiciones de uso</a> y la{" "}
               <a href="/privacidad">política de privacidad</a>.
-            </p>
+            </p>}
           </section>
         </div>
       </main>
