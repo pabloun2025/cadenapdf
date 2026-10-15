@@ -9,12 +9,13 @@ const appUrl = 'https://firma.veryfacil.org';
 Deno.serve(async request => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
-    const { id, groupKey = '', sessionId, reason, detail = '', reporterName = '', reporterEmail = '' } = await request.json();
+    const { id, groupKey = '', sessionId, reason, detail = '', reporterName = '', reporterEmail = '', inviteToken = '' } = await request.json();
     if (typeof id !== 'string' || typeof sessionId !== 'string' || typeof reason !== 'string' || !reasons.has(reason) || typeof detail !== 'string' || detail.trim().length > 500) throw new Error('Selecciona un motivo válido para detener el proceso.');
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const { data: workflow } = await admin.from('workflows').select('group_key_hash,status,owner_id,title').eq('id', id).maybeSingle();
-    if (!workflow || workflow.status !== 'active' || (workflow.group_key_hash && workflow.group_key_hash !== await hash(groupKey))) throw new Error('No se pudo acceder a esta ronda.');
     const sessionHash = await hash(sessionId);
+    const { data: invitation } = inviteToken ? await admin.from('round_invitations').select('id').eq('workflow_id', id).eq('session_hash', sessionHash).eq('status', 'opened').gt('expires_at', new Date().toISOString()).maybeSingle() : { data: null };
+    if (!workflow || workflow.status !== 'active' || (!invitation && workflow.group_key_hash && workflow.group_key_hash !== await hash(groupKey))) throw new Error('No se pudo acceder a esta ronda.');
     const { data: lock } = await admin.from('open_round_locks').select('holder_session_hash').eq('workflow_id', id).maybeSingle();
     if (!lock || lock.holder_session_hash !== sessionHash) throw new Error('Solo la persona con el turno activo puede informar un problema.');
     const { error: updateError } = await admin.from('workflows').update({ status: 'paused_error', paused_at: new Date().toISOString(), paused_reason: reason }).eq('id', id).eq('status', 'active');

@@ -381,21 +381,22 @@ function RoundAccess({ id }: { id: string }) {
   const query = new URLSearchParams(window.location.search);
   const turnToken = query.get("turn") || "";
   const queueToken = query.get("queue") || "";
+  const inviteToken = query.get("invite") || "";
   const [autoOpened, setAutoOpened] = useState(false);
   const [autoRestored, setAutoRestored] = useState(false);
   const sessionId =
     localStorage.getItem("firmador-turn") || crypto.randomUUID();
   localStorage.setItem("firmador-turn", sessionId);
   useEffect(() => {
-    if ((!queueToken && !turnToken) || round || autoOpened) return;
+    if ((!queueToken && !turnToken && !inviteToken) || round || autoOpened) return;
     setAutoOpened(true);
     void loadRound("");
-  }, [queueToken, turnToken, round, autoOpened]);
+  }, [queueToken, turnToken, inviteToken, round, autoOpened]);
   useEffect(() => {
-    if ((!queueToken && !turnToken) || !round || autoRestored) return;
+    if ((!queueToken && !turnToken && !inviteToken) || !round || autoRestored) return;
     setAutoRestored(true);
     void takeTurn();
-  }, [queueToken, turnToken, round, autoRestored]);
+  }, [queueToken, turnToken, inviteToken, round, autoRestored]);
   useEffect(() => {
     if (turn?.state !== "waiting") return;
     const timer = window.setInterval(() => {
@@ -425,13 +426,13 @@ function RoundAccess({ id }: { id: string }) {
     setBusy(true);
     const s = await getSupabase();
     const { data, error } = await s.functions.invoke("get-round", {
-      body: { id, groupKey },
+      body: { id, groupKey, inviteToken },
     });
     if (error || !data) {
       setNoticeTarget("access");
       setNoticeTone("error");
       setNotice(
-        queueToken || turnToken
+        queueToken || turnToken || inviteToken
           ? "Este enlace corresponde a una ronda protegida. Introduce la clave de acceso para consultar tu turno."
           : "No pudimos abrir este documento. Comprueba la clave.",
       );
@@ -443,7 +444,7 @@ function RoundAccess({ id }: { id: string }) {
     setBusy(false);
   }
   async function takeTurn() {
-    if (!name.trim() && !queueToken && !turnToken) {
+    if (!name.trim() && !queueToken && !turnToken && !inviteToken) {
       setNoticeTarget("turn");
       setNoticeTone("error");
       return setNotice("Escribe tu nombre para tomar un turno.");
@@ -459,6 +460,7 @@ function RoundAccess({ id }: { id: string }) {
         sessionId,
         turnToken,
         queueToken,
+        inviteToken,
       },
     });
     if (error || !data) {
@@ -543,6 +545,7 @@ function RoundAccess({ id }: { id: string }) {
         detail: issueDetail,
         reporterName: name,
         reporterEmail: email,
+        inviteToken,
       },
     });
     if (error) {
@@ -829,6 +832,42 @@ type OwnerRound = {
   created_at: string;
   signature_count: number;
 };
+type Contact = { id: string; email: string; display_name?: string | null };
+function InvitationComposer({ workflowId, contacts = [], onSent }: { workflowId: string; contacts?: Contact[]; onSent?: () => void }) {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function send(recipients: { email: string; name?: string }[]) {
+    if (!recipients.length) return;
+    setBusy(true); setMessage("");
+    const s = await getSupabase();
+    const { data, error } = await s.functions.invoke("send-round-invitations", { body: { id: workflowId, recipients } });
+    if (error || !data) setMessage("No pudimos enviar las invitaciones. Revisa los correos e inténtalo de nuevo.");
+    else {
+      const skipped = data.skipped ? ` ${data.skipped} ya estaba en la cola.` : "";
+      setMessage(data.sent ? `Invitación${data.sent === 1 ? "" : "es"} enviada${data.sent === 1 ? "" : "s"}.${skipped}` : `No se pudo enviar ninguna invitación.${skipped}`);
+      if (data.sent) { setEmail(""); setName(""); setChosen([]); onSent?.(); }
+    }
+    setBusy(false);
+  }
+  return <div className="invitation-composer">
+    <h4>Invitar por correo</h4>
+    <p>El enlace privado registra a la persona en la cola. Cada correo enviado se guarda en tus contactos privados.</p>
+    <div className="invite-fields">
+      <label>Correo<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="persona@ejemplo.com" /></label>
+      <label>Nombre <em>Opcional</em><input value={name} maxLength={120} onChange={(event) => setName(event.target.value)} placeholder="Nombre para la invitación" /></label>
+      <button className="primary" disabled={busy || !email.trim()} onClick={() => send([{ email, name }])}><Icon name="mail" size={16} /> {busy ? "Enviando…" : "Enviar invitación"}</button>
+    </div>
+    {contacts.length > 0 && <div className="contact-picker">
+      <strong>Contactos frecuentes</strong>
+      <div className="contact-options">{contacts.map(contact => <label key={contact.id}><input type="checkbox" checked={chosen.includes(contact.id)} onChange={() => setChosen(current => current.includes(contact.id) ? current.filter(id => id !== contact.id) : [...current, contact.id])} /><span>{contact.display_name || contact.email}<small>{contact.display_name ? contact.email : ""}</small></span></label>)}</div>
+      <button className="signout" disabled={busy || !chosen.length} onClick={() => send(contacts.filter(contact => chosen.includes(contact.id)).map(contact => ({ email: contact.email, name: contact.display_name || "" })))}>Enviar a {chosen.length || "los"} seleccionado{chosen.length === 1 ? "" : "s"}</button>
+    </div>}
+    {message && <Notice message={message} tone={message.startsWith("Invitación") ? "success" : "error"} />}
+  </div>;
+}
 function OwnerPanel() {
   const [rounds, setRounds] = useState<OwnerRound[]>([]);
   const [selected, setSelected] = useState<any>(null);
@@ -1006,14 +1045,14 @@ function OwnerPanel() {
                 >
                   Detener
                 </button>
-              ) : (
+              ) : selected.workflow.status === "paused_error" ? (
                 <button
                   className="signout"
                   onClick={() => manageRound("resume")}
                 >
                   Reanudar
                 </button>
-              )}
+              ) : null}
               {selected.activeTurn && (
                 <button
                   className="signout"
@@ -1074,6 +1113,12 @@ function OwnerPanel() {
               </dd>
             </div>
           </dl>
+          {selected.workflow.status === "active" && <section className="share-round">
+            <h4>Compartir e invitar</h4>
+            <p>Este enlace seguirá disponible mientras el proceso acepte firmas.</p>
+            <div className="share-url"><input readOnly value={`${window.location.origin}/r/${selected.workflow.id}`} aria-label="Enlace compartible" /><button className="signout" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/r/${selected.workflow.id}`).then(() => setNotice("Enlace copiado.")).catch(() => setNotice("No se pudo copiar el enlace."))}>Copiar enlace</button></div>
+            <InvitationComposer workflowId={selected.workflow.id} contacts={selected.contacts ?? []} onSent={() => { void openRound(selected.workflow.id); }} />
+          </section>}
           <h4>Historial de versiones</h4>
           <ul className="submission-list">
             {selected.versions.map((version: any) => (
@@ -1181,6 +1226,7 @@ function App() {
   const [document, setDocument] = useState<File | null>(null);
   const [notice, setNotice] = useState("");
   const [createdLink, setCreatedLink] = useState("");
+  const [createdRoundId, setCreatedRoundId] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let unsubscribe = () => {};
@@ -1275,6 +1321,7 @@ function App() {
       return setNotice("Añade un nombre y el PDF para continuar.");
     setBusy(true);
     setCreatedLink("");
+    setCreatedRoundId("");
     setNotice("Preparando tu ronda…");
     const form = new FormData();
     form.set("title", title);
@@ -1291,6 +1338,7 @@ function App() {
       );
     else {
       setNotice("");
+      setCreatedRoundId(data.id);
       setCreatedLink(`${window.location.origin}/r/${data.id}`);
     }
     setBusy(false);
@@ -1561,6 +1609,7 @@ function App() {
             >
               Copiar
             </button>
+            {createdRoundId && <InvitationComposer workflowId={createdRoundId} />}
           </div>
         )}
         <Notice message={notice} />

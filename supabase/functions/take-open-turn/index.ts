@@ -129,8 +129,9 @@ Deno.serve(async (req) => {
       sessionId,
       turnToken = "",
       queueToken = "",
+      inviteToken = "",
     } = await req.json();
-    if (!id || !sessionId || (!name?.trim() && !turnToken && !queueToken))
+    if (!id || !sessionId || (!name?.trim() && !turnToken && !queueToken && !inviteToken))
       throw new Error("Datos inválidos.");
     if (email && (typeof email !== "string" || !/^\S+@\S+\.\S+$/.test(email)))
       throw new Error("El correo no es válido.");
@@ -143,16 +144,23 @@ Deno.serve(async (req) => {
       .select("group_key_hash,title")
       .eq("id", id)
       .maybeSingle();
-    if (
+    if (!inviteToken && (
       !round ||
       (round.group_key_hash && round.group_key_hash !== (await hash(groupKey)))
-    )
+    ))
       throw new Error("No se pudo acceder a esta ronda.");
     const sessionHash = await hash(sessionId);
     let holderName = name.trim();
     let normalizedEmail = email.trim().toLowerCase();
     let invitedSessionHash = "";
-    if (queueToken) {
+    if (inviteToken) {
+      const { data: invited, error: invitationError } = await admin.rpc("restore_round_invitation_access", {
+        p_workflow_id: id, p_token_hash: await hash(inviteToken), p_new_session_hash: sessionHash,
+      });
+      if (invitationError || !invited) throw invitationError ?? new Error("No pudimos abrir la invitación.");
+      holderName = String(invited.holder_name || "").trim();
+      normalizedEmail = String(invited.email || "").trim().toLowerCase();
+    } else if (queueToken) {
       const { data: restored, error: restoreError } = await admin.rpc(
         "restore_open_turn_access",
         {

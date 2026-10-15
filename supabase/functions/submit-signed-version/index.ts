@@ -87,11 +87,10 @@ Deno.serve(async (request) => {
       !workflow.current_version_id
     )
       throw new Error("Esta ronda no está disponible.");
-    if (
-      workflow.group_key_hash &&
-      workflow.group_key_hash !== (await hashText(groupKey))
-    )
-      throw new Error("No se pudo acceder a esta ronda.");
+    if (workflow.group_key_hash && workflow.group_key_hash !== (await hashText(groupKey))) {
+      const { data: invitation } = await admin.from("round_invitations").select("id").eq("workflow_id", id).eq("session_hash", sessionHash).eq("status", "opened").gt("expires_at", new Date().toISOString()).maybeSingle();
+      if (!invitation) throw new Error("No se pudo acceder a esta ronda.");
+    }
     const { data: parent } = await admin
       .from("document_versions")
       .select("sha256,byte_size")
@@ -164,6 +163,7 @@ Deno.serve(async (request) => {
     );
     if (acceptError || !accepted?.ok)
       throw new Error("No pudimos incorporar el documento firmado.");
+    await admin.from("round_invitations").update({ status: "completed", completed_at: new Date().toISOString() }).eq("workflow_id", id).eq("session_hash", sessionHash).in("status", ["pending", "opened"]);
     await notifyNext(admin, id, accepted.next ?? null);
     return Response.json({ state: "accepted" }, { headers: cors });
   } catch (error) {

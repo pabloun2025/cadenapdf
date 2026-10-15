@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
       p_session_hash: await hash(sessionId),
     });
     if (error) throw error;
+    await a.from("round_invitations").update({ status: "cancelled" }).eq("workflow_id", id).eq("session_hash", await hash(sessionId)).in("status", ["pending", "opened"]);
     const next = data?.next;
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (next?.email && resendKey) {

@@ -81,6 +81,26 @@
   padding: 0;
   color: #1a5d4a;
 }
+.share-round, .invitation-composer {
+  margin: 24px 0;
+  padding: 20px;
+  border: 1px solid #d8e6dd;
+  border-radius: 16px;
+  background: #f8fbf9;
+}
+.share-round > h4, .invitation-composer h4 { margin: 0 0 6px; }
+.share-round > p, .invitation-composer > p { margin: 0 0 14px; color: #63756d; font-size: 14px; }
+.share-url { display: flex; gap: 10px; align-items: center; }
+.share-url input { min-width: 0; flex: 1; margin: 0; font-size: 13px; }
+.invite-fields { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
+.invite-fields label { margin: 0; font-size: 13px; }
+.invite-fields input { margin-top: 5px; }
+.invite-fields .primary { padding: 12px 15px; white-space: nowrap; }
+.contact-picker { margin-top: 16px; padding-top: 16px; border-top: 1px solid #dce8e0; }
+.contact-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0 12px; }
+.contact-options label { display: flex; gap: 8px; align-items: start; padding: 8px; border: 1px solid #dce8e0; border-radius: 9px; font-size: 13px; }
+.contact-options input { width: auto; margin: 3px 0 0; }
+.contact-options small { display: block; color: #74847d; overflow-wrap: anywhere; }
 .signing-step {
   margin: 28px 0 12px;
   padding: 22px;
@@ -242,6 +262,9 @@
   font-size: 14px;
 }
 @media (max-width: 600px) {
+  .share-url, .invite-fields { grid-template-columns: 1fr; display: grid; }
+  .share-url .signout, .invite-fields .primary { width: 100%; justify-content: center; }
+  .contact-options { grid-template-columns: 1fr; }
   .round {
     padding: 25px 18px;
   }
