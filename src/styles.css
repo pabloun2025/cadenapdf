@@ -264,6 +264,29 @@ em {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.name-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.name-fields label { min-width: 0; }
+.password-field { position: relative; display: block; }
+.password-field input { padding-right: 48px; }
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #527166;
+}
+.password-toggle:hover { background: #edf4ef; }
 .notice {
   margin: 12px 0 0;
   padding: 13px 14px;
@@ -650,6 +673,7 @@ em {
   }
 }
 @media (max-width: 480px) {
+  .name-fields { grid-template-columns: 1fr; gap: 0; }
   .auth,
   .workspace,
   .legal-page {

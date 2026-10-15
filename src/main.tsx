@@ -10,6 +10,7 @@ type IconName =
   | "check"
   | "clock"
   | "download"
+  | "eye"
   | "file"
   | "lock"
   | "mail"
@@ -37,6 +38,12 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
       <path d="M12 3v11" />
       <path d="m8 10 4 4 4-4" />
       <path d="M5 19h14" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+      <circle cx="12" cy="12" r="2.8" />
     </>
   ),
   file: (
@@ -1217,6 +1224,12 @@ function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [registering, setRegistering] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [recovering, setRecovering] = useState(
     window.location.hash.includes("type=recovery"),
   );
@@ -1261,20 +1274,46 @@ function App() {
       );
     setBusy(false);
   }
-  async function signUp() {
+  async function signUp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!firstName.trim() || !lastName.trim())
+      return setNotice("Escribe tu nombre y apellidos.");
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail))
+      return setNotice("Escribe un correo válido.");
+    if (password.length < 8)
+      return setNotice("La contraseña debe tener al menos 8 caracteres.");
+    if (password !== confirmPassword)
+      return setNotice("Las dos contraseñas no coinciden.");
     setBusy(true);
     setNotice("");
     const supabase = await getSupabase();
     const { error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
-      options: { emailRedirectTo: window.location.origin },
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: {
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          full_name: `${firstName.trim()} ${lastName.trim()}`,
+        },
+      },
     });
-    setNotice(
-      error
-        ? "No pudimos crear la cuenta. Usa una contraseña de al menos 8 caracteres."
-        : "Cuenta creada. Revisa tu correo para confirmarla.",
-    );
+    if (error) {
+      const detail = error.message.toLowerCase();
+      setNotice(
+        detail.includes("already") || detail.includes("registered")
+          ? "Ya existe una cuenta con este correo. Inicia sesión o recupera la contraseña."
+          : detail.includes("password")
+            ? "La contraseña no cumple los requisitos de seguridad. Usa al menos 8 caracteres."
+            : `No pudimos crear la cuenta: ${error.message}`,
+      );
+    } else {
+      setNotice("Cuenta creada. Revisa el correo de confirmación para activar tu acceso.");
+      setRegistering(false);
+      setConfirmPassword("");
+    }
     setBusy(false);
   }
   async function requestRecovery() {
@@ -1409,9 +1448,28 @@ function App() {
             <span className="card-kicker">
               <Icon name="shield" size={16} /> Espacio privado
             </span>
-            <h2>Accede a LeapSign</h2>
-            <p>Gestiona tus procesos y versiones.</p>
-            <form onSubmit={authenticate}>
+            <h2>{registering ? "Crea tu cuenta" : "Accede a LeapSign"}</h2>
+            <p>{registering ? "Tus datos se usan únicamente para identificar tu espacio privado." : "Gestiona tus procesos y versiones."}</p>
+            {registering ? <form onSubmit={signUp}>
+              <div className="name-fields">
+                <label>Nombre<input autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} maxLength={80} required autoFocus /></label>
+                <label>Apellidos<input autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} maxLength={120} required /></label>
+              </div>
+              <label>
+                Correo
+                <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              </label>
+              <label>
+                Contraseña <em>8 caracteres o más</em>
+                <span className="password-field"><input type={showPassword ? "text" : "password"} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required /><button type="button" className="password-toggle" aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"} onClick={() => setShowPassword((visible) => !visible)}><Icon name="eye" size={18} /></button></span>
+              </label>
+              <label>
+                Repite la contraseña
+                <span className="password-field"><input type={showConfirmPassword ? "text" : "password"} autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} minLength={8} required /><button type="button" className="password-toggle" aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"} onClick={() => setShowConfirmPassword((visible) => !visible)}><Icon name="eye" size={18} /></button></span>
+              </label>
+              <button className="primary wide" disabled={busy}>{busy ? "Creando cuenta…" : "Crear cuenta"}</button>
+              <button className="text-button" type="button" onClick={() => { setRegistering(false); setNotice(""); }} disabled={busy}>Ya tengo una cuenta</button>
+            </form> : <form onSubmit={authenticate}>
               <label>
                 Correo
                 <input
@@ -1447,12 +1505,12 @@ function App() {
               <button
                 className="text-button"
                 type="button"
-                onClick={signUp}
+                onClick={() => { setRegistering(true); setNotice(""); }}
                 disabled={busy}
               >
                 Crear una cuenta
               </button>
-            </form>
+            </form>}
             <Notice message={notice} />
             <p className="form-legal">
               Al continuar aceptas las{" "}
