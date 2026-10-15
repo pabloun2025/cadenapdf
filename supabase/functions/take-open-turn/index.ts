@@ -157,7 +157,8 @@ Deno.serve(async (req) => {
       const { data: invited, error: invitationError } = await admin.rpc("restore_round_invitation_access", {
         p_workflow_id: id, p_token_hash: await hash(inviteToken), p_new_session_hash: sessionHash,
       });
-      if (invitationError || !invited) throw invitationError ?? new Error("No pudimos abrir la invitación.");
+      if (invitationError) throw new Error(invitationError.message);
+      if (!invited) throw new Error("No pudimos abrir la invitación.");
       holderName = String(invited.holder_name || "").trim();
       normalizedEmail = String(invited.email || "").trim().toLowerCase();
     } else if (queueToken) {
@@ -169,7 +170,8 @@ Deno.serve(async (req) => {
           p_new_session_hash: sessionHash,
         },
       );
-      if (restoreError || !restored) throw restoreError ?? new Error("No pudimos recuperar tu turno.");
+      if (restoreError) throw new Error(restoreError.message);
+      if (!restored) throw new Error("No pudimos recuperar tu turno.");
       holderName = String(restored.holder_name || "").trim();
       normalizedEmail = String(restored.email || "").trim().toLowerCase();
     } else if (turnToken && !holderName) {
@@ -192,7 +194,7 @@ Deno.serve(async (req) => {
       p_email: normalizedEmail || null,
       p_turn_token_hash: turnToken ? await hash(turnToken) : null,
     });
-    if (error) throw error;
+    if (error) throw new Error(error.message);
     if (
       turn.state === "active" &&
       invitedSessionHash &&
@@ -222,13 +224,13 @@ Deno.serve(async (req) => {
         .order("sequence", { ascending: false })
         .limit(1)
         .single();
-      if (e) throw e;
+      if (e) throw new Error(e.message);
       const { data: l, error: le } = await admin.storage
         .from("firmador-documents")
         .createSignedUrl(v.storage_path, 600, {
           download: downloadName(round.title, v.sequence),
         });
-      if (le) throw le;
+      if (le) throw new Error(le.message);
       turn.pdfUrl = l.signedUrl;
     }
     turn.holder_name = holderName;

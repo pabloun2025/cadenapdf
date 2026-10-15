@@ -14,6 +14,7 @@ type IconName =
   | "file"
   | "lock"
   | "mail"
+  | "edit"
   | "refresh"
   | "shield"
   | "trash"
@@ -63,6 +64,12 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     <>
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="m4 7 8 6 8-6" />
+    </>
+  ),
+  edit: (
+    <>
+      <path d="M4 20h4l11-11-4-4L4 16z" />
+      <path d="m13.5 6.5 4 4" />
     </>
   ),
   refresh: (
@@ -418,7 +425,7 @@ function RoundAccess({ id }: { id: string }) {
   const [turnExpired, setTurnExpired] = useState(false);
   const [notice, setNotice] = useState("");
   const [noticeTarget, setNoticeTarget] = useState<
-    "access" | "turn" | "submission" | "issue"
+    "access" | "turn" | "submission" | "release" | "issue"
   >("access");
   const [noticeTone, setNoticeTone] = useState<"info" | "error" | "success">(
     "info",
@@ -477,11 +484,12 @@ function RoundAccess({ id }: { id: string }) {
     if (error || !data) {
       setNoticeTarget("access");
       setNoticeTone("error");
-      setNotice(
+      setNotice(await functionError(
+        error,
         queueToken || turnToken || inviteToken
-          ? "Este enlace corresponde a una ronda protegida. Introduce la clave de acceso para consultar tu turno."
+          ? "Este enlace ya no permite acceder al proceso. Solicita una invitación nueva al creador."
           : "No pudimos abrir este documento. Comprueba la clave.",
-      );
+      ));
     } else {
       setKey(groupKey);
       setRound(data);
@@ -529,12 +537,22 @@ function RoundAccess({ id }: { id: string }) {
     setBusy(false);
   }
   async function release() {
+    setBusy(true);
     const s = await getSupabase();
-    await s.functions.invoke("release-open-turn", { body: { id, sessionId } });
-    setTurn(null);
-    setNoticeTarget("turn");
-    setNoticeTone("info");
-    setNotice("Turno liberado.");
+    const { data, error } = await s.functions.invoke("release-open-turn", { body: { id, sessionId } });
+    if (error || !data?.ok) {
+      setNoticeTarget("release");
+      setNoticeTone("error");
+      setNotice(await functionError(error, "No pudimos liberar el turno. Inténtalo de nuevo."));
+    } else {
+      setTurn(null);
+      setNoticeTarget("turn");
+      setNoticeTone("success");
+      setNotice(inviteToken
+        ? "Turno liberado. Puedes volver a solicitarlo desde esta misma invitación mientras no hayas firmado."
+        : "Turno liberado. Puedes volver a solicitarlo cuando lo necesites.");
+    }
+    setBusy(false);
   }
   async function submitSignedVersion() {
     if (!signedDocument || !reviewedPrevious) {
@@ -770,9 +788,12 @@ function RoundAccess({ id }: { id: string }) {
               <Notice message={notice} tone={noticeTone} />
             )}
           </div>
-          <button className="text-button" onClick={release}>
-            Liberar turno sin firmar
+          <button className="text-button" onClick={release} disabled={busy}>
+            {busy ? "Liberando…" : "Liberar turno sin firmar"}
           </button>
+          {noticeTarget === "release" && (
+            <Notice message={notice} tone={noticeTone} />
+          )}
           <aside className="scope-note">
             <Icon name="shield" size={18} />
             <p>
@@ -822,7 +843,7 @@ function RoundAccess({ id }: { id: string }) {
               <Notice message={notice} tone={noticeTone} />
             )}
           </fieldset>
-          {noticeTarget !== "submission" && noticeTarget !== "issue" && (
+          {noticeTarget !== "submission" && noticeTarget !== "release" && noticeTarget !== "issue" && (
             <Notice message={notice} tone={noticeTone} />
           )}
         </section>
@@ -895,6 +916,11 @@ function InvitationComposer({ workflowId, contacts = [], onSent }: { workflowId:
   const [drafts, setDrafts] = useState<InviteDraft[]>([emptyInvite()]);
   const [savedContacts, setSavedContacts] = useState<Contact[]>(contacts);
   const [chosen, setChosen] = useState<string[]>([]);
+  const [contactSort, setContactSort] = useState<"name" | "email">("name");
+  const [contactPage, setContactPage] = useState(0);
+  const [editingContact, setEditingContact] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<"error" | "success">("success");
   const [busy, setBusy] = useState(false);
@@ -911,6 +937,54 @@ function InvitationComposer({ workflowId, contacts = [], onSent }: { workflowId:
   }, [contacts]);
   function updateDraft(id: string, patch: Partial<InviteDraft>) {
     setDrafts((current) => current.map((draft) => draft.id === id ? { ...draft, ...patch } : draft));
+  }
+  function startEditing(contact: Contact) {
+    setEditingContact(contact.id);
+    setEditName(contact.display_name || "");
+    setEditEmail(contact.email);
+    setMessage("");
+  }
+  async function saveContact(contactId: string) {
+    const normalizedEmail = editEmail.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      setMessageTone("error");
+      return setMessage("Escribe un correo válido para guardar el contacto.");
+    }
+    setBusy(true);
+    const s = await getSupabase();
+    const { error } = await (s as any).from("owner_contacts").update({
+      email: normalizedEmail,
+      display_name: editName.trim() || null,
+    }).eq("id", contactId);
+    if (error) {
+      setMessageTone("error");
+      setMessage(error.code === "23505"
+        ? "Ya existe un contacto con ese correo."
+        : "No pudimos guardar los cambios del contacto.");
+    } else {
+      setEditingContact(null);
+      setMessageTone("success");
+      setMessage("Contacto actualizado.");
+      await loadContacts();
+    }
+    setBusy(false);
+  }
+  async function deleteContact(contact: Contact) {
+    if (!window.confirm(`¿Eliminar ${contact.display_name || contact.email} de tus contactos frecuentes?`)) return;
+    setBusy(true);
+    const s = await getSupabase();
+    const { error } = await (s as any).from("owner_contacts").delete().eq("id", contact.id);
+    if (error) {
+      setMessageTone("error");
+      setMessage("No pudimos eliminar el contacto.");
+    } else {
+      setChosen((current) => current.filter((id) => id !== contact.id));
+      if (editingContact === contact.id) setEditingContact(null);
+      setMessageTone("success");
+      setMessage("Contacto eliminado.");
+      await loadContacts();
+    }
+    setBusy(false);
   }
   async function send(recipients: { email: string; name?: string; saveContact?: boolean }[], source: "drafts" | "contacts") {
     if (!recipients.length) return;
@@ -932,8 +1006,9 @@ function InvitationComposer({ workflowId, contacts = [], onSent }: { workflowId:
       const parts = [];
       if (data.sent) parts.push(`${data.sent} invitación${data.sent === 1 ? " enviada" : "es enviadas"}`);
       if (data.skipped) parts.push(`${data.skipped} destinatario${data.skipped === 1 ? " ya estaba" : "s ya estaban"} en la cola`);
+      if (data.completed) parts.push(`${data.completed} contacto${data.completed === 1 ? " ya completó" : "s ya completaron"} su firma`);
       if (data.failed?.length) parts.push(`${data.failed.length} envío${data.failed.length === 1 ? " falló" : "s fallaron"}`);
-      setMessageTone(data.sent && !data.failed?.length ? "success" : "error");
+      setMessageTone(!data.failed?.length && (data.sent || data.skipped || data.completed) ? "success" : "error");
       setMessage(`${parts.join(" · ")}.`);
       if (data.sent) {
         if (source === "drafts") setDrafts([emptyInvite()]);
@@ -946,6 +1021,16 @@ function InvitationComposer({ workflowId, contacts = [], onSent }: { workflowId:
     }
   }
   const pending = drafts.filter((draft) => draft.email.trim());
+  const sortedContacts = [...savedContacts].sort((a, b) => {
+    const first = contactSort === "name" ? (a.display_name || a.email) : a.email;
+    const second = contactSort === "name" ? (b.display_name || b.email) : b.email;
+    return first.localeCompare(second, "es", { sensitivity: "base" });
+  });
+  const contactPageCount = Math.max(1, Math.ceil(sortedContacts.length / 10));
+  const visibleContacts = sortedContacts.slice(contactPage * 10, contactPage * 10 + 10);
+  useEffect(() => {
+    if (contactPage >= contactPageCount) setContactPage(contactPageCount - 1);
+  }, [contactPage, contactPageCount]);
   return (
     <div className="invitation-composer">
       <h4>Invitar por correo</h4>
@@ -971,7 +1056,21 @@ function InvitationComposer({ workflowId, contacts = [], onSent }: { workflowId:
       </div>
       {savedContacts.length > 0 && <div className="contact-picker">
         <div className="contact-picker-head"><strong>Contactos frecuentes</strong><span>{chosen.length} seleccionado{chosen.length === 1 ? "" : "s"}</span></div>
-        <div className="contact-options">{savedContacts.map((contact) => <label key={contact.id}><input type="checkbox" checked={chosen.includes(contact.id)} onChange={() => setChosen((current) => current.includes(contact.id) ? current.filter((id) => id !== contact.id) : [...current, contact.id])} /><span>{contact.display_name || contact.email}<small>{contact.display_name ? contact.email : ""}</small></span></label>)}</div>
+        <div className="contact-sort">
+          <label>Ordenar por<select value={contactSort} onChange={(event) => { setContactSort(event.target.value as "name" | "email"); setContactPage(0); }}><option value="name">Nombre</option><option value="email">Correo</option></select></label>
+          <span>{sortedContacts.length} contacto{sortedContacts.length === 1 ? "" : "s"}</span>
+        </div>
+        <div className="contact-options">{visibleContacts.map((contact) => <div className="contact-row" key={contact.id}>
+          {editingContact === contact.id ? <div className="contact-edit">
+            <label>Nombre<input value={editName} maxLength={120} onChange={(event) => setEditName(event.target.value)} /></label>
+            <label>Correo<input type="email" value={editEmail} onChange={(event) => setEditEmail(event.target.value)} /></label>
+            <div><button type="button" className="text-button" disabled={busy} onClick={() => saveContact(contact.id)}>Guardar</button><button type="button" className="text-button" onClick={() => setEditingContact(null)}>Cancelar</button></div>
+          </div> : <>
+            <label><input type="checkbox" checked={chosen.includes(contact.id)} onChange={() => setChosen((current) => current.includes(contact.id) ? current.filter((id) => id !== contact.id) : [...current, contact.id])} /><span>{contact.display_name || contact.email}<small>{contact.display_name ? contact.email : ""}</small></span></label>
+            <div className="contact-row-actions"><button type="button" aria-label={`Editar ${contact.display_name || contact.email}`} title="Editar contacto" onClick={() => startEditing(contact)}><Icon name="edit" size={16} /></button><button type="button" className="danger" aria-label={`Eliminar ${contact.display_name || contact.email}`} title="Eliminar contacto" onClick={() => deleteContact(contact)}><Icon name="trash" size={16} /></button></div>
+          </>}
+        </div>)}</div>
+        {contactPageCount > 1 && <div className="contact-pagination"><button type="button" className="text-button" disabled={contactPage === 0} onClick={() => setContactPage((page) => page - 1)}>Anterior</button><span>Página {contactPage + 1} de {contactPageCount}</span><button type="button" className="text-button" disabled={contactPage + 1 >= contactPageCount} onClick={() => setContactPage((page) => page + 1)}>Siguiente</button></div>}
         <button type="button" className="primary selected-send" disabled={busy || !chosen.length} onClick={() => send(savedContacts.filter((contact) => chosen.includes(contact.id)).map((contact) => ({ email: contact.email, name: contact.display_name || "", saveContact: true })), "contacts")}><Icon name="mail" size={16} /> {busy ? "Enviando…" : `Enviar a ${chosen.length} marcado${chosen.length === 1 ? "" : "s"}`}</button>
       </div>}
       {message && <Notice message={message} tone={messageTone} />}
@@ -1205,7 +1304,7 @@ function OwnerPanel() {
               <dt>Quién lo tiene</dt>
               <dd>
                 {selected.activeTurn
-                  ? `${selected.activeTurn.holder_name}${selected.activeTurn.email ? ` · ${selected.activeTurn.email}` : ""} · hasta ${new Date(selected.activeTurn.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                  ? `${selected.activeTurn.holder_name}${selected.activeTurn.holder_email ? ` · ${selected.activeTurn.holder_email}` : ""} · hasta ${new Date(selected.activeTurn.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
                   : "Disponible"}
               </dd>
             </div>
@@ -1230,6 +1329,13 @@ function OwnerPanel() {
             <InvitationComposer workflowId={selected.workflow.id} contacts={selected.contacts ?? []} onSent={() => { void openRound(selected.workflow.id); }} />
           </section>}
           <h4>Historial de versiones</h4>
+          <aside className="retention-note">
+            <Icon name="clock" size={18} />
+            <div>
+              <strong>Plazos del proceso</strong>
+              <p>El turno de firma dura 10 minutos y cada invitación privada caduca a los 30 días o al completar su firma. Las versiones históricas solo se conservan durante la revisión: al aceptar la versión final o descartar parte del historial, dejan de estar disponibles de inmediato y su eliminación técnica se completa en un máximo de 48 horas.</p>
+            </div>
+          </aside>
           <ul className="submission-list">
             {selected.versions.map((version: any) => (
               <li key={version.id}>
@@ -1242,6 +1348,10 @@ function OwnerPanel() {
                 <span>
                   {Math.ceil(version.byte_size / 1024)} KB ·{" "}
                   {new Date(version.created_at).toLocaleString()}
+                </span>
+                <span className="version-author">
+                  Cargada por <strong>{version.submitted_by_name || (version.sequence === 0 ? "Creador del proceso" : "Participante")}</strong>
+                  {version.submitted_by_email ? ` · ${version.submitted_by_email}` : ""}
                 </span>
                 <div className="version-actions">
                   <button

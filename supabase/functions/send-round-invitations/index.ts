@@ -31,18 +31,20 @@ Deno.serve(async request => {
     if (!workflow || workflow.status !== 'active') throw new Error('Este proceso ya no admite nuevas firmas.');
     const resendKey = Deno.env.get('RESEND_API_KEY'); const from = Deno.env.get('RESEND_FROM_EMAIL');
     if (!resendKey || !from) throw new Error('El envío de correo no está configurado.');
-    let sent = 0; let skipped = 0; const failed: string[] = [];
+    let sent = 0; let skipped = 0; let completed = 0; const failed: string[] = [];
     for (const recipient of unique) {
       const { data: savedContact } = await admin.from('owner_contacts').select('display_name').eq('owner_id', user.id).eq('email', recipient.email).maybeSingle();
       const displayName = recipient.name || savedContact?.display_name || recipient.email.split('@')[0];
       if (recipient.saveContact) {
         await admin.from('owner_contacts').upsert({ owner_id: user.id, email: recipient.email, display_name: displayName, last_used_at: new Date().toISOString() }, { onConflict: 'owner_id,email' });
       }
-      const { data: prior } = await admin.from('round_invitations').select('id,session_hash').eq('workflow_id', id).eq('email', recipient.email).in('status', ['pending','opened']).gt('expires_at', new Date().toISOString()).maybeSingle();
+      const { data: completedInvitation } = await admin.from('round_invitations').select('id').eq('workflow_id', id).eq('email', recipient.email).eq('status', 'completed').limit(1).maybeSingle();
+      if (completedInvitation) { completed++; continue; }
+      const { data: prior } = await admin.from('round_invitations').select('id,session_hash').eq('workflow_id', id).eq('email', recipient.email).in('status', ['pending','opened','cancelled']).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (prior?.session_hash) { skipped++; continue; }
       const rawToken = crypto.randomUUID();
       const invitation = prior
-        ? await admin.from('round_invitations').update({ token_hash: await hash(rawToken), holder_name: displayName, expires_at: new Date(Date.now()+30*86400000).toISOString(), email_error: null }).eq('id', prior.id).select('id').single()
+        ? await admin.from('round_invitations').update({ token_hash: await hash(rawToken), holder_name: displayName, status: 'pending', session_hash: null, opened_at: null, expires_at: new Date(Date.now()+30*86400000).toISOString(), email_error: null }).eq('id', prior.id).select('id').single()
         : await admin.from('round_invitations').insert({ workflow_id:id, owner_id:user.id, email:recipient.email, holder_name:displayName, token_hash:await hash(rawToken) }).select('id').single();
       if (invitation.error || !invitation.data) { failed.push(recipient.email); continue; }
       const link = `https://firma.veryfacil.org/r/${id}?invite=${encodeURIComponent(rawToken)}`;
@@ -51,6 +53,6 @@ Deno.serve(async request => {
       if (response.ok) { sent++; await admin.from('round_invitations').update({ email_sent_at:new Date().toISOString(), email_error:null }).eq('id', invitation.data.id); }
       else { failed.push(recipient.email); await admin.from('round_invitations').update({ email_error:`HTTP ${response.status}` }).eq('id', invitation.data.id); }
     }
-    return Response.json({ sent, skipped, failed }, { headers: cors });
+    return Response.json({ sent, skipped, completed, failed }, { headers: cors });
   } catch (error) { return Response.json({ error:error instanceof Error ? error.message : 'Error inesperado.' }, { status:400, headers:cors }); }
 });
