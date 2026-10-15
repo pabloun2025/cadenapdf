@@ -188,6 +188,8 @@ function DocumentArt() {
 }
 const passwordRules = (value: string) => [
   { label: "8 caracteres como mínimo", met: value.length >= 8 },
+  { label: "Una letra minúscula", met: /[a-z]/.test(value) },
+  { label: "Una letra mayúscula", met: /[A-Z]/.test(value) },
   { label: "Al menos un número", met: /\d/.test(value) },
   { label: "Al menos un símbolo", met: /[^\p{L}\p{N}\s]/u.test(value) },
 ];
@@ -1330,7 +1332,7 @@ function App() {
     if (!/^\S+@\S+\.\S+$/.test(normalizedEmail))
       return setNotice("Escribe un correo válido.");
     if (!validPassword(password))
-      return setNotice("Completa los tres requisitos de la contraseña.");
+      return setNotice("Completa todos los requisitos de la contraseña.");
     if (password !== confirmPassword)
       return setNotice("Las dos contraseñas no coinciden.");
     setBusy(true);
@@ -1393,7 +1395,7 @@ function App() {
     event.preventDefault();
     setAuthNoticeTone("error");
     if (!validPassword(password))
-      return setNotice("Completa los tres requisitos de la contraseña.");
+      return setNotice("Completa todos los requisitos de la contraseña.");
     if (password !== confirmPassword)
       return setNotice("Las dos contraseñas no coinciden.");
     setBusy(true);
