@@ -482,7 +482,8 @@
   background: #e8f0eb;
   color: #195444;
 }
-.flow-steps li > span svg {
+.flow-steps li > span svg,
+.flow-steps li > span .frog-mark {
   width: 19px;
   height: 19px;
 }

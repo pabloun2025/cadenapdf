@@ -123,28 +123,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   );
 }
 function FrogMark() {
-  return (
-    <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
-      <path
-        d="M10.7 22c2.8-5 7.6-7.9 12.7-7 5.3.9 8.1 4.5 6.1 8.1-2.2 4-8.5 6.4-14 4.1-3.8-1.5-6.4-3.1-4.8-5.2Z"
-        fill="currentColor"
-      />
-      <path
-        d="M15.5 25.5C11.3 27.3 9 30.6 5 32m9.1-4.8C11 30.1 9.2 33.3 6 35m21.5-14.2c3.2-.2 5.2-1.8 7.3-4m-7.7 7c3.8.7 6.3 2.6 8.8 5"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-      <path
-        d="M14.2 24.5c4.4 1.5 9.4.6 12.4-2.6"
-        stroke="#F4E2A9"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-      />
-      <circle cx="27.1" cy="16.2" r="2.2" fill="currentColor" />
-      <circle cx="27.6" cy="15.7" r=".65" fill="#124D40" />
-    </svg>
-  );
+  return <img className="frog-mark" src="/frog-mark.svg" alt="" aria-hidden="true" />;
 }
 function Brand() {
   return (
@@ -257,7 +236,7 @@ function Footer() {
         <span className="footer-mark">
           <FrogMark />
         </span>
-        <span>© {new Date().getFullYear()} Pablo Martínez</span>
+        <span>© {new Date().getFullYear()} Pablo Martínez · Libre uso</span>
       </div>
       <nav aria-label="Información legal">
         <a href="/privacidad">Privacidad</a>
@@ -290,73 +269,73 @@ const ISSUE_REASONS = [
 const LEGAL_CONTENT = {
   privacidad: {
     eyebrow: "Privacidad",
-    title: "Tu documento sigue siendo tuyo.",
+    title: "Tus documentos siguen siendo tuyos.",
     intro:
-      "Usamos solo lo necesario para que el documento avance entre las personas indicadas. No vendemos tus datos, no usamos el contenido para publicidad y nunca publicamos tus archivos.",
+      "LeapSign utiliza únicamente la información necesaria para gestionar cada proceso. No vende datos, no analiza el contenido con fines publicitarios y no publica los archivos.",
     sections: [
       [
-        "Qué tratamos",
-        "El correo del creador, los datos básicos del proceso, el PDF y sus versiones. Si un participante facilita su nombre o correo, los usamos para gestionar su turno y enviarle avisos.",
+        "Datos necesarios",
+        "Se tratan la cuenta del creador, los datos básicos del proceso, el PDF y sus versiones. El nombre y el correo de cada participante se utilizan para gestionar su turno y enviar las notificaciones solicitadas.",
       ],
       [
-        "Cómo se protegen",
-        "Los PDF se guardan en un espacio privado y solo se entregan mediante permisos del servidor y enlaces temporales. La conexión viaja cifrada y el proveedor protege los archivos almacenados. Como cualquier servicio conectado, no podemos prometer riesgo cero.",
+        "Acceso y protección",
+        "Los PDF permanecen en almacenamiento privado. El acceso se autoriza desde el servidor mediante enlaces personales y temporales; las comunicaciones usan HTTPS y el proveedor protege los datos almacenados. Ningún sistema conectado puede garantizar riesgo cero.",
       ],
       [
-        "Cuánto tiempo",
-        "Conservamos los archivos mientras el proceso está activo. El creador puede finalizarlo o eliminarlo desde su panel; al eliminarlo, se inicia la retirada de archivos y datos asociados, salvo copias técnicas temporales u obligaciones legales.",
+        "Conservación",
+        "Los archivos se mantienen mientras el proceso está activo. Al aceptar una versión final o descartar parte del historial, esas copias dejan de estar disponibles y su eliminación técnica se completa en un máximo de 48 horas. LeapSign no sustituye a un archivo documental permanente.",
       ],
       [
         "Tus derechos",
-        "Puedes acceder a tus procesos, descargar sus versiones y eliminarlos desde tu espacio. Para consultas de acceso, rectificación, supresión, limitación u oposición, escribe a pabloun@gmail.com.",
+        "Puedes consultar, descargar y eliminar tus procesos desde tu espacio. Para ejercer derechos de acceso, rectificación, supresión, limitación u oposición, escribe a pabloun@gmail.com.",
       ],
     ],
   },
   seguridad: {
     eyebrow: "Seguridad",
-    title: "Protección clara en cada paso.",
+    title: "Acceso limitado a cada paso.",
     intro:
-      "Cada persona recibe solo el acceso que necesita y durante el tiempo necesario. El creador mantiene el control del proceso y de sus versiones.",
+      "Cada participante accede únicamente al documento que necesita y durante el tiempo de su turno. El creador conserva el control del proceso.",
     sections: [
       [
         "Acceso personal",
-        "Cada creador ve sus propios procesos. Quien firma accede únicamente a la versión vigente durante su turno, mediante un enlace privado y temporal.",
+        "Cada cuenta ve sus propios procesos. Quien firma recibe un enlace personal para acceder exclusivamente a la versión vigente durante su turno.",
       ],
       [
         "Claves protegidas",
-        "Las credenciales internas y los permisos administrativos permanecen en el servidor; no viajan dentro de la aplicación ni aparecen en los enlaces compartidos.",
+        "Las credenciales administrativas permanecen en el servidor y no se incluyen en el navegador ni en los enlaces compartidos.",
       ],
       [
         "Una versión cada vez",
-        "Cada entrega continúa desde la versión anterior. El creador puede detener el proceso, recuperar una versión y confirmar cuál será la definitiva.",
+        "Cada entrega parte de la versión vigente. El creador puede detener el proceso, recuperar una versión anterior y confirmar la copia definitiva.",
       ],
       [
         "Qué hace LeapSign",
-        "LeapSign ordena turnos y versiones. La identidad del firmante y la validez de una firma deben comprobarse con la herramienta de firma elegida y, cuando corresponda, con asesoramiento profesional.",
+        "LeapSign organiza turnos y versiones; no identifica legalmente a los firmantes ni certifica las firmas. Esa comprobación corresponde a la herramienta de firma utilizada y, cuando proceda, al asesoramiento profesional adecuado.",
       ],
     ],
   },
   condiciones: {
     eyebrow: "Condiciones de uso",
-    title: "Lo importante, antes de empezar.",
+    title: "Condiciones claras para usar LeapSign.",
     intro:
-      "Usa LeapSign solo con documentos que puedas tratar, cuida los enlaces privados y revisa cada PDF antes de hacerlo avanzar.",
+      "Utiliza documentos que puedas tratar legítimamente, protege los enlaces de acceso y revisa cada versión antes de hacerla avanzar.",
     sections: [
       [
         "Naturaleza del servicio",
-        "LeapSign facilita la circulación ordenada de versiones PDF. No es una autoridad certificadora, un servicio de identificación, una notaría ni asesoramiento jurídico. La incorporación de un archivo no acredita por sí sola la autenticidad o validez legal de una firma.",
+        "LeapSign coordina el envío secuencial de archivos PDF. No es una autoridad certificadora, un servicio de identificación, una notaría ni asesoramiento jurídico. Subir un archivo no demuestra por sí solo la identidad de quien firma ni la validez jurídica de la firma.",
       ],
       [
         "Responsabilidad del usuario",
-        "El creador debe contar con base legítima para tratar los documentos y datos de participantes. Cada firmante debe verificar el archivo, usar una herramienta de firma adecuada y no compartir su turno o enlace.",
+        "El creador debe estar autorizado para tratar el documento y los datos de las personas invitadas. Cada participante debe comprobar el archivo, utilizar una herramienta de firma adecuada y mantener privado su enlace.",
       ],
       [
         "Disponibilidad y conservación",
-        "El servicio puede cambiar, suspenderse o requerir mantenimiento. Descarga la versión final que necesites conservar; LeapSign no debe utilizarse como archivo permanente ni como única copia de un documento.",
+        "El servicio puede actualizarse, interrumpirse o requerir mantenimiento. Conserva por tu cuenta la versión final: LeapSign no debe ser el único lugar donde guardes un documento importante.",
       ],
       [
-        "Titularidad y contacto",
-        "Servicio y diseño © 2026 Pablo Martínez. Contacto: pabloun@gmail.com. Los documentos pertenecen a sus respectivos titulares; subirlos a LeapSign no transfiere su propiedad.",
+        "Autoría, uso y contacto",
+        "LeapSign es un proyecto PSMM de libre uso. Los documentos pertenecen siempre a sus respectivos titulares y subirlos no transfiere su propiedad. Contacto: pabloun@gmail.com.",
       ],
     ],
   },
@@ -390,13 +369,13 @@ function LegalPage({ page }: { page: keyof typeof LEGAL_CONTENT }) {
             <strong>¿Necesitas aclarar algo?</strong>
             <p>
               Escribe a <a href="mailto:pabloun@gmail.com">pabloun@gmail.com</a>
-              . Estos textos ofrecen información general y no sustituyen
-              asesoramiento jurídico profesional.
+              . Esta información explica el funcionamiento general del servicio
+              y no sustituye asesoramiento jurídico profesional.
             </p>
           </div>
         </aside>
         <p className="legal-updated">
-          Última actualización: 14 de octubre de 2026.
+          Última actualización: 15 de octubre de 2026.
         </p>
       </article>
     </main>
@@ -1666,14 +1645,10 @@ function App() {
           <section className="welcome">
             <DocumentArt />
             <span className="eyebrow">Firma secuencial de documentos</span>
-            <h1>
-              Cada firma avanza.
-              <br />
-              Cada versión, bajo control.
-            </h1>
+            <h1>Una firma a la vez. Una sola versión vigente.</h1>
             <p>
-              LeapSign mantiene una sola versión vigente y avisa a cada persona
-              cuando llega su turno.
+              Comparte un PDF, organiza los turnos y conserva el control del
+              proceso desde un único lugar.
             </p>
           </section>
           <section className="login-card">
@@ -1869,12 +1844,10 @@ function App() {
             )}
           </button>
         </div>
-        <p className="process-disclaimer">
-          Antes de compartir el enlace, comprueba que tienes permiso para usar
-          el documento y los datos de sus participantes. LeapSign mantiene las
-          versiones en orden; la validez de cada firma debe verificarse con la
-          herramienta correspondiente.
-        </p>
+        <aside className="process-disclaimer">
+          <Icon name="shield" size={17} />
+          <span><strong>Antes de compartir.</strong> Confirma que puedes tratar el documento y los datos de las personas invitadas. LeapSign organiza el proceso, pero no verifica identidades ni certifica firmas. Revisa y guarda siempre la versión final.</span>
+        </aside>
         {createdLink && (
           <div className="share-link" role="status">
             <span>Enlace listo</span>

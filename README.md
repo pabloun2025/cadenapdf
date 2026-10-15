@@ -54,7 +54,7 @@ estática mediante `wrangler.jsonc`.
 
 ## Titularidad y contacto
 
-© 2026 Pablo Martínez. Contacto: pabloun@gmail.com.
+Proyecto PSMM, de libre uso. Contacto: pabloun@gmail.com.
 
 Los documentos procesados pertenecen a sus respectivos titulares. Consulta las
 páginas `/privacidad`, `/seguridad` y `/condiciones` en la aplicación.

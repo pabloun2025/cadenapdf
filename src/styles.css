@@ -58,13 +58,13 @@ button:disabled {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: var(--forest);
-  color: var(--gold);
+  border: 1px solid #d4e2da;
+  background: #edf3ef;
   box-shadow: 0 8px 24px #123f351c;
 }
-.brand-mark svg {
-  width: 29px;
-  height: 29px;
+.brand-mark .frog-mark {
+  width: 34px;
+  height: 34px;
 }
 .brand-name {
   font:
@@ -497,11 +497,25 @@ em {
   margin: 0 34px 24px;
 }
 .process-disclaimer {
-  margin: 0;
-  padding: 0 34px 24px;
-  color: #7a8680;
-  font-size: 10px;
-  line-height: 1.6;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 34px 26px;
+  padding: 13px 14px;
+  border: 1px solid #dce6df;
+  border-radius: 11px;
+  background: #f5f8f6;
+  color: #5f7168;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.process-disclaimer .icon {
+  margin-top: 1px;
+  color: #2f6a57;
+}
+.process-disclaimer strong {
+  color: #315247;
+  font-weight: 700;
 }
 .site-footer {
   display: flex;
@@ -538,11 +552,12 @@ em {
   width: 27px;
   height: 27px;
   border-radius: 8px;
-  background: var(--forest);
-  color: var(--gold);
+  border: 1px solid #d4e2da;
+  background: #edf3ef;
 }
-.footer-mark svg {
-  width: 20px;
+.footer-mark .frog-mark {
+  width: 23px;
+  height: 23px;
 }
 .legal-page > .brand {
   margin-bottom: 66px;
@@ -680,7 +695,8 @@ em {
     margin: 0 20px 20px;
   }
   .process-disclaimer {
-    padding: 0 20px 22px;
+    margin: 0 20px 22px;
+    padding: 13px 14px;
   }
   .legal-grid {
     grid-template-columns: 1fr;
