@@ -18,11 +18,11 @@ Deno.serve(async request => {
     const { id, recipients } = await request.json();
     if (typeof id !== 'string' || !Array.isArray(recipients) || !recipients.length || recipients.length > 25) throw new Error('Selecciona entre 1 y 25 destinatarios.');
     const normalized = recipients.map((item: unknown) => {
-      const value = item as { email?: unknown; name?: unknown };
+      const value = item as { email?: unknown; name?: unknown; saveContact?: unknown };
       const email = typeof value.email === 'string' ? value.email.trim().toLowerCase() : '';
       const name = typeof value.name === 'string' ? value.name.trim().slice(0, 120) : '';
       if (!emailOk(email)) throw new Error('Hay un correo no válido.');
-      return { email, name };
+      return { email, name, saveContact: value.saveContact === true };
     });
     const unique = [...new Map(normalized.map(item => [item.email, item])).values()];
     const user = await owner(request);
@@ -33,11 +33,13 @@ Deno.serve(async request => {
     if (!resendKey || !from) throw new Error('El envío de correo no está configurado.');
     let sent = 0; let skipped = 0; const failed: string[] = [];
     for (const recipient of unique) {
-      const { data: prior } = await admin.from('round_invitations').select('id,session_hash').eq('workflow_id', id).eq('email', recipient.email).in('status', ['pending','opened']).gt('expires_at', new Date().toISOString()).maybeSingle();
-      if (prior?.session_hash) { skipped++; continue; }
       const { data: savedContact } = await admin.from('owner_contacts').select('display_name').eq('owner_id', user.id).eq('email', recipient.email).maybeSingle();
       const displayName = recipient.name || savedContact?.display_name || recipient.email.split('@')[0];
-      await admin.from('owner_contacts').upsert({ owner_id: user.id, email: recipient.email, display_name: displayName, last_used_at: new Date().toISOString() }, { onConflict: 'owner_id,email' });
+      if (recipient.saveContact) {
+        await admin.from('owner_contacts').upsert({ owner_id: user.id, email: recipient.email, display_name: displayName, last_used_at: new Date().toISOString() }, { onConflict: 'owner_id,email' });
+      }
+      const { data: prior } = await admin.from('round_invitations').select('id,session_hash').eq('workflow_id', id).eq('email', recipient.email).in('status', ['pending','opened']).gt('expires_at', new Date().toISOString()).maybeSingle();
+      if (prior?.session_hash) { skipped++; continue; }
       const rawToken = crypto.randomUUID();
       const invitation = prior
         ? await admin.from('round_invitations').update({ token_hash: await hash(rawToken), holder_name: displayName, expires_at: new Date(Date.now()+30*86400000).toISOString(), email_error: null }).eq('id', prior.id).select('id').single()

@@ -879,40 +879,104 @@ type OwnerRound = {
   signature_count: number;
 };
 type Contact = { id: string; email: string; display_name?: string | null };
+type InviteDraft = {
+  id: string;
+  email: string;
+  name: string;
+  saveContact: boolean;
+};
+const emptyInvite = (): InviteDraft => ({
+  id: crypto.randomUUID(),
+  email: "",
+  name: "",
+  saveContact: false,
+});
 function InvitationComposer({ workflowId, contacts = [], onSent }: { workflowId: string; contacts?: Contact[]; onSent?: () => void }) {
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const [drafts, setDrafts] = useState<InviteDraft[]>([emptyInvite()]);
+  const [savedContacts, setSavedContacts] = useState<Contact[]>(contacts);
   const [chosen, setChosen] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"error" | "success">("success");
   const [busy, setBusy] = useState(false);
-  async function send(recipients: { email: string; name?: string }[]) {
-    if (!recipients.length) return;
-    setBusy(true); setMessage("");
+  async function loadContacts() {
     const s = await getSupabase();
-    const { data, error } = await s.functions.invoke("send-round-invitations", { body: { id: workflowId, recipients } });
-    if (error || !data) setMessage("No pudimos enviar las invitaciones. Revisa los correos e inténtalo de nuevo.");
-    else {
-      const skipped = data.skipped ? ` ${data.skipped} ya estaba en la cola.` : "";
-      setMessage(data.sent ? `Invitación${data.sent === 1 ? "" : "es"} enviada${data.sent === 1 ? "" : "s"}.${skipped}` : `No se pudo enviar ninguna invitación.${skipped}`);
-      if (data.sent) { setEmail(""); setName(""); setChosen([]); onSent?.(); }
-    }
-    setBusy(false);
+    const { data } = await s.from("owner_contacts").select("id,email,display_name").order("last_used_at", { ascending: false }).limit(100);
+    if (data) setSavedContacts(data as Contact[]);
   }
-  return <div className="invitation-composer">
-    <h4>Invitar por correo</h4>
-    <p>El enlace privado registra a la persona en la cola. Cada correo enviado se guarda en tus contactos privados.</p>
-    <div className="invite-fields">
-      <label>Correo<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="persona@ejemplo.com" /></label>
-      <label>Nombre <em>Opcional</em><input value={name} maxLength={120} onChange={(event) => setName(event.target.value)} placeholder="Nombre para la invitación" /></label>
-      <button className="primary" disabled={busy || !email.trim()} onClick={() => send([{ email, name }])}><Icon name="mail" size={16} /> {busy ? "Enviando…" : "Enviar invitación"}</button>
+  useEffect(() => {
+    void loadContacts();
+  }, []);
+  useEffect(() => {
+    if (contacts.length) setSavedContacts(contacts);
+  }, [contacts]);
+  function updateDraft(id: string, patch: Partial<InviteDraft>) {
+    setDrafts((current) => current.map((draft) => draft.id === id ? { ...draft, ...patch } : draft));
+  }
+  async function send(recipients: { email: string; name?: string; saveContact?: boolean }[], source: "drafts" | "contacts") {
+    if (!recipients.length) return;
+    if (recipients.some((recipient) => !/^\S+@\S+\.\S+$/.test(recipient.email.trim()))) {
+      setMessageTone("error");
+      setMessage("Revisa los correos: hay una dirección incompleta o no válida.");
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    try {
+      const s = await getSupabase();
+      const { data, error } = await s.functions.invoke("send-round-invitations", { body: { id: workflowId, recipients } });
+      if (error || !data) {
+        setMessageTone("error");
+        setMessage(await functionError(error, "No pudimos enviar las invitaciones. Revisa los correos e inténtalo de nuevo."));
+        return;
+      }
+      const parts = [];
+      if (data.sent) parts.push(`${data.sent} invitación${data.sent === 1 ? " enviada" : "es enviadas"}`);
+      if (data.skipped) parts.push(`${data.skipped} destinatario${data.skipped === 1 ? " ya estaba" : "s ya estaban"} en la cola`);
+      if (data.failed?.length) parts.push(`${data.failed.length} envío${data.failed.length === 1 ? " falló" : "s fallaron"}`);
+      setMessageTone(data.sent && !data.failed?.length ? "success" : "error");
+      setMessage(`${parts.join(" · ")}.`);
+      if (data.sent) {
+        if (source === "drafts") setDrafts([emptyInvite()]);
+        else setChosen([]);
+        await loadContacts();
+        onSent?.();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+  const pending = drafts.filter((draft) => draft.email.trim());
+  return (
+    <div className="invitation-composer">
+      <h4>Invitar por correo</h4>
+      <p>Añade hasta 25 personas. Cada enlace es privado y registra a su destinatario en la cola.</p>
+      <div className="invite-list">
+        {drafts.map((draft, index) => (
+          <div className="invite-person" key={draft.id}>
+            <div className="invite-person-head">
+              <strong>Persona {index + 1}</strong>
+              {drafts.length > 1 && <button type="button" className="text-button danger" onClick={() => setDrafts((current) => current.filter((item) => item.id !== draft.id))}>Quitar</button>}
+            </div>
+            <div className="invite-fields">
+              <label>Correo<input type="email" value={draft.email} onChange={(event) => updateDraft(draft.id, { email: event.target.value })} placeholder="persona@ejemplo.com" /></label>
+              <label>Nombre <em>Opcional</em><input value={draft.name} maxLength={120} onChange={(event) => updateDraft(draft.id, { name: event.target.value })} placeholder="Nombre para la invitación" /></label>
+            </div>
+            <label className="save-contact"><input type="checkbox" checked={draft.saveContact} onChange={(event) => updateDraft(draft.id, { saveContact: event.target.checked })} /> Guardar en contactos frecuentes</label>
+          </div>
+        ))}
+      </div>
+      <div className="invite-actions">
+        <button type="button" className="signout" disabled={busy || drafts.length >= 25} onClick={() => setDrafts((current) => [...current, emptyInvite()])}>+ Añadir otra persona</button>
+        <button type="button" className="primary" disabled={busy || !pending.length} onClick={() => send(pending, "drafts")}><Icon name="mail" size={16} /> {busy ? "Enviando…" : pending.length === 1 ? "Enviar 1 invitación" : `Enviar ${pending.length} invitaciones`}</button>
+      </div>
+      {savedContacts.length > 0 && <div className="contact-picker">
+        <div className="contact-picker-head"><strong>Contactos frecuentes</strong><span>{chosen.length} seleccionado{chosen.length === 1 ? "" : "s"}</span></div>
+        <div className="contact-options">{savedContacts.map((contact) => <label key={contact.id}><input type="checkbox" checked={chosen.includes(contact.id)} onChange={() => setChosen((current) => current.includes(contact.id) ? current.filter((id) => id !== contact.id) : [...current, contact.id])} /><span>{contact.display_name || contact.email}<small>{contact.display_name ? contact.email : ""}</small></span></label>)}</div>
+        <button type="button" className="primary selected-send" disabled={busy || !chosen.length} onClick={() => send(savedContacts.filter((contact) => chosen.includes(contact.id)).map((contact) => ({ email: contact.email, name: contact.display_name || "", saveContact: true })), "contacts")}><Icon name="mail" size={16} /> {busy ? "Enviando…" : `Enviar a ${chosen.length} marcado${chosen.length === 1 ? "" : "s"}`}</button>
+      </div>}
+      {message && <Notice message={message} tone={messageTone} />}
     </div>
-    {contacts.length > 0 && <div className="contact-picker">
-      <strong>Contactos frecuentes</strong>
-      <div className="contact-options">{contacts.map(contact => <label key={contact.id}><input type="checkbox" checked={chosen.includes(contact.id)} onChange={() => setChosen(current => current.includes(contact.id) ? current.filter(id => id !== contact.id) : [...current, contact.id])} /><span>{contact.display_name || contact.email}<small>{contact.display_name ? contact.email : ""}</small></span></label>)}</div>
-      <button className="signout" disabled={busy || !chosen.length} onClick={() => send(contacts.filter(contact => chosen.includes(contact.id)).map(contact => ({ email: contact.email, name: contact.display_name || "" })))}>Enviar a {chosen.length || "los"} seleccionado{chosen.length === 1 ? "" : "s"}</button>
-    </div>}
-    {message && <Notice message={message} tone={message.startsWith("Invitación") ? "success" : "error"} />}
-  </div>;
+  );
 }
 function OwnerPanel() {
   const [rounds, setRounds] = useState<OwnerRound[]>([]);
