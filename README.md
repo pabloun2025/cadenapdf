@@ -1,2 +1,60 @@
-# cadenapdf
-Sistema para firma de pdfs en cadena
+# LeapSign
+
+LeapSign coordina la firma secuencial de documentos PDF: mantiene una única
+versión vigente, ordena el acceso por turnos y permite al creador controlar el
+ciclo completo sin recibir certificados privados ni contraseñas de firma.
+
+Producción: [firma.veryfacil.org](https://firma.veryfacil.org)
+
+## Capacidades actuales
+
+- Acceso de creadores mediante Supabase Auth y aislamiento por propietario.
+- Rondas privadas con título, mensaje y clave de acceso opcional.
+- Cola de participantes, turno exclusivo de diez minutos y aviso por correo.
+- Descarga temporal de la versión vigente e incorporación del PDF firmado.
+- Controles operativos sobre tipo, tamaño, continuidad y duplicidad del archivo.
+- Seguimiento de versiones, incidencias, pausas, reanudación, rollback,
+  finalización y purga desde el panel del creador.
+- Almacenamiento privado, URLs firmadas de corta duración y credenciales de
+  servicio fuera del navegador.
+- Despliegue automático de migraciones y funciones Edge mediante GitHub Actions.
+
+## Alcance de seguridad y firma
+
+LeapSign coordina el recorrido del documento, pero no es una autoridad
+certificadora ni determina por sí mismo la identidad del firmante o la validez
+jurídica de una firma. La persona firmante utiliza FirmaEC, Adobe u otra
+herramienta apropiada y las partes deben realizar la comprobación legal o
+criptográfica que corresponda.
+
+Los PDF se conservan temporalmente en un bucket privado para que el proceso
+pueda funcionar. No se publican ni se usan para publicidad. El acceso se concede
+desde funciones de servidor y mediante enlaces con caducidad. Las conexiones
+usan HTTPS/TLS y el proveedor aplica cifrado en reposo; esto no equivale a
+cifrado de extremo a extremo ni permite prometer riesgo cero.
+
+## Desarrollo
+
+```bash
+npm ci
+npm run dev
+npm test
+npm run build
+```
+
+La aplicación requiere `VITE_SUPABASE_URL` y
+`VITE_SUPABASE_PUBLISHABLE_KEY`. Los secretos de Supabase y Resend se configuran
+fuera del repositorio.
+
+## Despliegue
+
+Los cambios bajo `supabase/` se publican con
+`.github/workflows/deploy-supabase.yml`. La interfaz está preparada como una SPA
+estática mediante `wrangler.jsonc`.
+
+## Titularidad y contacto
+
+Proyecto PSMM, de libre uso. Contacto: pabloun@gmail.com.
+
+Los documentos procesados pertenecen a sus respectivos titulares. Consulta las
+páginas `/privacidad`, `/seguridad` y `/condiciones` en la aplicación.
