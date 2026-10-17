@@ -1,4 +1,5 @@
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { reserveDownload, protectEndpoint, budgetedFetch } from "../_shared/economic-guard.ts";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -32,7 +33,7 @@ const escapeHtml = (value: string) =>
 const emailFrame = (content: string) =>
   `<div style="margin:0;background:#f5f6f2;padding:32px 16px"><main style="max-width:560px;margin:auto;background:#fff;border:1px solid #dce5df;border-radius:16px;padding:32px;font-family:Arial,sans-serif;color:#102c25"><p style="margin:0 0 24px;font-size:20px;font-weight:700">LeapSign</p>${content}<hr style="border:0;border-top:1px solid #e6ece8;margin:28px 0 18px"><p style="margin:0;color:#75827c;font-size:12px;line-height:1.5">Documento privado · No reenvíes este correo ni el enlace de acceso.</p></main></div>`;
 async function notifyWaitlisted(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   workflowId: string,
   sessionHash: string,
   email: string,
@@ -89,7 +90,7 @@ async function notifyWaitlisted(
   const html = emailFrame(
     `<p style="margin:0;color:#29705c;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">Solicitud recibida</p><h1 style="margin:10px 0 16px;font-size:28px">Estás en la cola de firma</h1><p>Hola ${escapeHtml(name)},</p><p style="line-height:1.65;color:#53665e">Conservamos tu posición y te avisaremos cuando el documento esté disponible para ti. También puedes consultar el estado desde el enlace.</p><p style="margin:24px 0"><a href="${link}" style="display:inline-block;background:#124d40;color:#fff;padding:13px 18px;border-radius:9px;text-decoration:none;font-weight:700">Consultar mi turno</a></p>`,
   );
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await budgetedFetch(admin, "https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
@@ -118,7 +119,7 @@ async function notifyWaitlisted(
     )
     .eq("id", notification.id);
 }
-Deno.serve(async (req) => {
+Deno.serve(protectEndpoint("take-open-turn", createClient, async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const {
@@ -144,6 +145,7 @@ Deno.serve(async (req) => {
       .select("group_key_hash,title")
       .eq("id", id)
       .maybeSingle();
+    if (!round) throw new Error("No se pudo acceder a esta ronda.");
     if (!inviteToken && (
       !round ||
       (round.group_key_hash && round.group_key_hash !== (await hash(groupKey)))
@@ -219,15 +221,16 @@ Deno.serve(async (req) => {
     if (turn.state === "active") {
       const { data: v, error: e } = await admin
         .from("document_versions")
-        .select("storage_path,sequence")
+        .select("id,storage_path,sequence,byte_size")
         .eq("workflow_id", id)
         .order("sequence", { ascending: false })
         .limit(1)
         .single();
       if (e) throw new Error(e.message);
+      await reserveDownload(admin, v.id, Number(v.byte_size));
       const { data: l, error: le } = await admin.storage
         .from("firmador-documents")
-        .createSignedUrl(v.storage_path, 600, {
+        .createSignedUrl(v.storage_path, 60, {
           download: downloadName(round.title, v.sequence),
         });
       if (le) throw new Error(le.message);
@@ -242,4 +245,4 @@ Deno.serve(async (req) => {
       { status: 400, headers: cors },
     );
   }
-});
+}));

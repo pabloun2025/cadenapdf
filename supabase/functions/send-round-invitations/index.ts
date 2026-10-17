@@ -1,3 +1,4 @@
+import { protectEndpoint, budgetedFetch } from "../_shared/economic-guard.ts";
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
@@ -12,7 +13,7 @@ async function owner(request: Request) {
   if (error || !user) throw new Error('No autorizado.');
   return user;
 }
-Deno.serve(async request => {
+Deno.serve(protectEndpoint("send-round-invitations", createClient, async request => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
     const { id, recipients } = await request.json();
@@ -40,8 +41,8 @@ Deno.serve(async request => {
       }
       const { data: completedInvitation } = await admin.from('round_invitations').select('id').eq('workflow_id', id).eq('email', recipient.email).eq('status', 'completed').limit(1).maybeSingle();
       if (completedInvitation) { completed++; continue; }
-      const { data: prior } = await admin.from('round_invitations').select('id,session_hash').eq('workflow_id', id).eq('email', recipient.email).in('status', ['pending','opened','cancelled']).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (prior?.session_hash) { skipped++; continue; }
+      const { data: prior } = await admin.from('round_invitations').select('id,session_hash,status').eq('workflow_id', id).eq('email', recipient.email).in('status', ['pending','opened','cancelled']).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (prior?.session_hash || (prior && prior.status !== 'cancelled')) { skipped++; continue; }
       const rawToken = crypto.randomUUID();
       const invitation = prior
         ? await admin.from('round_invitations').update({ token_hash: await hash(rawToken), holder_name: displayName, status: 'pending', session_hash: null, opened_at: null, expires_at: new Date(Date.now()+30*86400000).toISOString(), email_error: null }).eq('id', prior.id).select('id').single()
@@ -49,10 +50,10 @@ Deno.serve(async request => {
       if (invitation.error || !invitation.data) { failed.push(recipient.email); continue; }
       const link = `https://firma.veryfacil.org/r/${id}?invite=${encodeURIComponent(rawToken)}`;
       const html = `<div style="margin:0;background:#f5f6f2;padding:32px 16px"><main style="max-width:560px;margin:auto;background:#fff;border:1px solid #dce5df;border-radius:16px;padding:32px;font-family:Arial,sans-serif;color:#102c25"><p style="margin:0 0 24px;font-size:20px;font-weight:700">LeapSign</p><p style="margin:0;color:#29705c;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">Invitación a firmar</p><h1 style="margin:10px 0 16px;font-size:28px">Tienes un documento pendiente</h1><p>Hola ${esc(displayName)},</p><p style="line-height:1.65;color:#53665e">Te han invitado a participar en <strong>${esc(workflow.title)}</strong>. Al abrir este enlace quedarás registrado en la cola. Cuando llegue tu turno podrás descargar la versión vigente, firmarla y subir el PDF resultante.</p><p style="margin:24px 0"><a href="${link}" style="display:inline-block;background:#124d40;color:#fff;padding:13px 18px;border-radius:9px;text-decoration:none;font-weight:700">Entrar a mi turno</a></p><hr style="border:0;border-top:1px solid #e6ece8;margin:28px 0 18px"><p style="margin:0;color:#75827c;font-size:12px;line-height:1.5">Enlace privado · No reenvíes este correo ni el enlace de acceso.</p></main></div>`;
-      const response = await fetch('https://api.resend.com/emails', { method:'POST', headers:{ Authorization:`Bearer ${resendKey}`, 'Content-Type':'application/json', 'Idempotency-Key':`leapsign-invitation-${invitation.data.id}` }, body:JSON.stringify({ from, to:[recipient.email], subject:`LeapSign · Invitación a firmar ${workflow.title}`, html }) });
+      const response = await budgetedFetch(admin, 'https://api.resend.com/emails', { method:'POST', headers:{ Authorization:`Bearer ${resendKey}`, 'Content-Type':'application/json', 'Idempotency-Key':`leapsign-invitation-${invitation.data.id}` }, body:JSON.stringify({ from, to:[recipient.email], subject:`LeapSign · Invitación a firmar ${workflow.title}`, html }) });
       if (response.ok) { sent++; await admin.from('round_invitations').update({ email_sent_at:new Date().toISOString(), email_error:null }).eq('id', invitation.data.id); }
       else { failed.push(recipient.email); await admin.from('round_invitations').update({ email_error:`HTTP ${response.status}` }).eq('id', invitation.data.id); }
     }
     return Response.json({ sent, skipped, completed, failed }, { headers: cors });
   } catch (error) { return Response.json({ error:error instanceof Error ? error.message : 'Error inesperado.' }, { status:400, headers:cors }); }
-});
+}));

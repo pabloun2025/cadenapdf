@@ -1,12 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
 let client: ReturnType<typeof createClient> | undefined;
-const url = 'https://lgsdoutarthfymbjgdrj.supabase.co';
-// Supabase publishable keys are intentionally safe to ship in a browser.
-const key = 'sb_publishable_1X5M_k_rSx8DNxQfdq3SiQ_n7WBhGFO';
+const url = import.meta.env.VITE_SUPABASE_URL;
+const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export async function getSupabase() {
   if (client) return client;
+  if (!url || !key || url.includes('lgsdoutarthfymbjgdrj.supabase.co')) {
+    throw new Error('Configura el proyecto Supabase independiente de CadenaPDF.');
+  }
   client = createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true } });
   return client;
 }

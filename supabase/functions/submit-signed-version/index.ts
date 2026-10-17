@@ -1,11 +1,12 @@
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { protectEndpoint, budgetedFetch, reserveUpload } from "../_shared/economic-guard.ts";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
-const hash = async (bytes: ArrayBuffer) =>
+const hash = async (bytes: BufferSource) =>
   [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
     .map((x) => x.toString(16).padStart(2, "0"))
     .join("");
@@ -19,7 +20,7 @@ const escapeHtml = (value: string) =>
       ]!,
   );
 async function notifyNext(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   workflowId: string,
   next: { email?: string; holder_name?: string; token?: string } | null,
 ) {
@@ -28,7 +29,7 @@ async function notifyNext(
   if (!next?.email || !next.token || !key || !from) return;
   const link = `https://firma.veryfacil.org/r/${workflowId}?turn=${encodeURIComponent(next.token)}`;
   const html = `<div style="margin:0;background:#f5f6f2;padding:32px 16px"><main style="max-width:560px;margin:auto;background:#fff;border:1px solid #dce5df;border-radius:16px;padding:32px;font-family:Arial,sans-serif;color:#102c25"><p style="margin:0 0 24px;font-size:20px;font-weight:700">LeapSign</p><p style="margin:0;color:#29705c;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">Turno disponible</p><h1 style="margin:10px 0 16px;font-size:28px">El documento ha avanzado hasta ti</h1><p>Hola ${escapeHtml(String(next.holder_name ?? ""))},</p><p style="line-height:1.65;color:#53665e">La versión anterior se incorporó correctamente. Tu acceso está activo durante 10 minutos para descargar, firmar y subir la versión siguiente.</p><p style="margin:24px 0"><a href="${link}" style="display:inline-block;background:#124d40;color:#fff;padding:13px 18px;border-radius:9px;text-decoration:none;font-weight:700">Abrir mi documento</a></p><hr style="border:0;border-top:1px solid #e6ece8;margin:28px 0 18px"><p style="margin:0;color:#75827c;font-size:12px;line-height:1.5">Documento privado · No reenvíes este correo ni el enlace de acceso.</p></main></div>`;
-  await fetch("https://api.resend.com/emails", {
+  await budgetedFetch(admin, "https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
@@ -43,7 +44,7 @@ async function notifyNext(
   });
 }
 
-Deno.serve(async (request) => {
+Deno.serve(protectEndpoint("submit-signed-version", createClient, async (request) => {
   if (request.method === "OPTIONS")
     return new Response("ok", { headers: cors });
   try {
@@ -78,7 +79,7 @@ Deno.serve(async (request) => {
     const sessionHash = await hashText(sessionId);
     const { data: workflow } = await admin
       .from("workflows")
-      .select("id,status,group_key_hash,current_version_id")
+      .select("id,owner_id,status,group_key_hash,current_version_id")
       .eq("id", id)
       .maybeSingle();
     if (
@@ -132,6 +133,7 @@ Deno.serve(async (request) => {
     else {
       submissionId = crypto.randomUUID();
       const path = `${id}/submissions/${submissionId}.pdf`;
+      await reserveUpload(admin, document.size, workflow.owner_id);
       const { error: uploadError } = await admin.storage
         .from("firmador-documents")
         .upload(path, bytes, { contentType: "application/pdf", upsert: false });
@@ -172,4 +174,4 @@ Deno.serve(async (request) => {
       { status: 400, headers: cors },
     );
   }
-});
+}));
